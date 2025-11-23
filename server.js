@@ -119,9 +119,8 @@ app.post('/api/timer/switch', (req, res) => {
   currentState.isRunning = false;
   currentState.lastUpdated = Date.now();
   
-  if (currentState.isFocus) {
-    currentState.totalSessions += 1;
-  }
+  // Don't increment totalSessions here - only increment when timer naturally completes
+  // The increment happens in getCurrentState() when timeLeft reaches 0
   
   updateState(currentState);
   res.json({ success: true, state: currentState });
