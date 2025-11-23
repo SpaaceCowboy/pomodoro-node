@@ -1,10 +1,11 @@
 // Import required modules
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config()
 
 // Create our app
 const app = express();
-const PORT = 5000
+const PORT = process.env.PORT || 5000;
 
 // Allow frontend to talk to backend
 app.use(cors( {
