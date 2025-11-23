@@ -8,11 +8,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Allow frontend to talk to backend
-app.use(cors( {
-  origin: [
-    'http://localhost:3000',
-    'https://pomodoro-next-chi.vercel.app/'
-  ]
+// Simple CORS - Allow all origins (for testing)
+app.use(cors({
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
