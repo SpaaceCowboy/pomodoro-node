@@ -9,6 +9,7 @@ const PORT = 5000
 // Allow frontend to talk to backend
 app.use(cors( {
   origin: [
+    'http://localhost:3000',
     'https://pomodoro-next-chi.vercel.app/'
   ]
 }));
@@ -126,9 +127,10 @@ app.get('/api/timer/stats', (req, res) => {
   res.json(stats);
 });
 
+module.exports = app
 // Start the server
-app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on https://pomodoro-next-chi.vercel.app/`);
-  console.log(`⏰ Pomodoro Timer API ready!`);
-  console.log(`📊 Try: https://pomodoro-next-chi.vercel.app//api/timer/state`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+  });
+}
