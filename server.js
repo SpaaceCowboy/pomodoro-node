@@ -12,91 +12,115 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Store timer state (simple in-memory)
+// Store timer state per session (works with serverless)
 let timerState = {
   isRunning: false,
   isFocus: true,
   timeLeft: 25 * 60,
   totalSessions: 0,
-  consecutiveSessions: 0
+  consecutiveSessions: 0,
+  lastUpdated: Date.now()
 };
 
-let lastUpdateTime = Date.now();
-
-// Update timer every second
-setInterval(() => {
-  if (timerState.isRunning) {
+// Calculate elapsed time when requested
+const getCurrentTimerState = () => {
+  const state = { ...timerState };
+  
+  if (state.isRunning) {
     const now = Date.now();
-    const secondsPassed = Math.floor((now - lastUpdateTime) / 1000);
+    const elapsedSeconds = Math.floor((now - state.lastUpdated) / 1000);
     
-    if (secondsPassed > 0) {
-      timerState.timeLeft -= secondsPassed;
-      lastUpdateTime = now;
+    if (elapsedSeconds > 0) {
+      state.timeLeft = Math.max(0, state.timeLeft - elapsedSeconds);
+      state.lastUpdated = now;
       
-      // Timer completed
-      if (timerState.timeLeft <= 0) {
-        timerState.timeLeft = 0;
-        timerState.isRunning = false;
+      // Handle timer completion
+      if (state.timeLeft === 0) {
+        state.isRunning = false;
         
-        // Switch between focus and break
-        if (timerState.isFocus) {
-          // Focus time finished, start break
-          timerState.isFocus = false;
-          timerState.totalSessions += 1;
-          timerState.consecutiveSessions += 1;
+        if (state.isFocus) {
+          // Focus completed, switch to break
+          state.isFocus = false;
+          state.totalSessions += 1;
+          state.consecutiveSessions += 1;
           
-          // Check if it's time for a long break (every 4 sessions)
-          if (timerState.consecutiveSessions >= 4) {
-            timerState.timeLeft = 15 * 60; // 15 minute long break
-            timerState.consecutiveSessions = 0;
+          if (state.consecutiveSessions >= 4) {
+            state.timeLeft = 15 * 60; // Long break
+            state.consecutiveSessions = 0;
           } else {
-            timerState.timeLeft = 5 * 60; // 5 minute short break
+            state.timeLeft = 5 * 60; // Short break
           }
         } else {
-          // Break finished, start focus
-          timerState.isFocus = true;
-          timerState.timeLeft = 25 * 60;
+          // Break completed, switch to focus
+          state.isFocus = true;
+          state.timeLeft = 25 * 60;
         }
       }
     }
   }
-}, 1000);
+  
+  return state;
+};
+
+// Update the stored state with current calculations
+const updateStoredState = (newState) => {
+  timerState = { ...newState };
+};
 
 // Routes
 app.get('/api/timer/state', (req, res) => {
-  res.json(timerState);
+  const currentState = getCurrentTimerState();
+  updateStoredState(currentState);
+  res.json(currentState);
 });
 
 app.post('/api/timer/start', (req, res) => {
-  timerState.isRunning = true;
-  lastUpdateTime = Date.now();
-  res.json({ success: true, state: timerState });
+  const currentState = getCurrentTimerState();
+  currentState.isRunning = true;
+  currentState.lastUpdated = Date.now();
+  updateStoredState(currentState);
+  res.json({ success: true, state: currentState });
 });
 
 app.post('/api/timer/pause', (req, res) => {
-  timerState.isRunning = false;
-  res.json({ success: true, state: timerState });
+  const currentState = getCurrentTimerState();
+  currentState.isRunning = false;
+  currentState.lastUpdated = Date.now();
+  updateStoredState(currentState);
+  res.json({ success: true, state: currentState });
 });
 
 app.post('/api/timer/reset', (req, res) => {
-  timerState.isRunning = false;
-  timerState.timeLeft = timerState.isFocus ? 25 * 60 : 5 * 60;
-  res.json({ success: true, state: timerState });
+  const currentState = getCurrentTimerState();
+  currentState.isRunning = false;
+  currentState.timeLeft = currentState.isFocus ? 25 * 60 : 5 * 60;
+  currentState.lastUpdated = Date.now();
+  updateStoredState(currentState);
+  res.json({ success: true, state: currentState });
 });
 
 app.post('/api/timer/switch', (req, res) => {
-  timerState.isFocus = !timerState.isFocus;
-  timerState.timeLeft = timerState.isFocus ? 25 * 60 : 5 * 60;
-  timerState.isRunning = false;
-  res.json({ success: true, state: timerState });
+  const currentState = getCurrentTimerState();
+  currentState.isFocus = !currentState.isFocus;
+  currentState.timeLeft = currentState.isFocus ? 25 * 60 : 5 * 60;
+  currentState.isRunning = false;
+  currentState.lastUpdated = Date.now();
+  
+  if (currentState.isFocus) {
+    currentState.totalSessions += 1;
+  }
+  
+  updateStoredState(currentState);
+  res.json({ success: true, state: currentState });
 });
 
 app.get('/api/timer/stats', (req, res) => {
+  const currentState = getCurrentTimerState();
   const stats = {
-    totalSessions: timerState.totalSessions,
-    consecutiveSessions: timerState.consecutiveSessions,
-    nextLongBreak: Math.max(0, 4 - timerState.consecutiveSessions),
-    isLongBreakNext: timerState.consecutiveSessions >= 3
+    totalSessions: currentState.totalSessions,
+    consecutiveSessions: currentState.consecutiveSessions,
+    nextLongBreak: Math.max(0, 4 - currentState.consecutiveSessions),
+    isLongBreakNext: currentState.consecutiveSessions >= 3
   };
   res.json(stats);
 });
@@ -105,7 +129,8 @@ app.get('/api/timer/stats', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'Server is running!',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    timerState: getCurrentTimerState()
   });
 });
 
