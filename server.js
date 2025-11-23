@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Simple CORS - Allow all origins
 app.use(cors({
@@ -12,7 +11,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Store timer state per session (works with serverless)
+// In-memory storage (will reset on serverless cold starts, but that's okay)
 let timerState = {
   isRunning: false,
   isFocus: true,
@@ -22,85 +21,82 @@ let timerState = {
   lastUpdated: Date.now()
 };
 
-// Calculate elapsed time when requested
-const getCurrentTimerState = () => {
-  const state = { ...timerState };
+// Calculate the current state based on elapsed time
+const calculateCurrentState = (state) => {
+  const currentState = { ...state };
   
-  if (state.isRunning) {
+  if (currentState.isRunning) {
     const now = Date.now();
-    const elapsedSeconds = Math.floor((now - state.lastUpdated) / 1000);
+    const elapsedSeconds = Math.floor((now - currentState.lastUpdated) / 1000);
     
     if (elapsedSeconds > 0) {
-      state.timeLeft = Math.max(0, state.timeLeft - elapsedSeconds);
-      state.lastUpdated = now;
+      currentState.timeLeft = Math.max(0, currentState.timeLeft - elapsedSeconds);
+      currentState.lastUpdated = now;
       
-      // Handle timer completion
-      if (state.timeLeft === 0) {
-        state.isRunning = false;
+      // Check if timer completed
+      if (currentState.timeLeft <= 0) {
+        currentState.isRunning = false;
         
-        if (state.isFocus) {
-          // Focus completed, switch to break
-          state.isFocus = false;
-          state.totalSessions += 1;
-          state.consecutiveSessions += 1;
+        // Auto-switch modes
+        if (currentState.isFocus) {
+          // Focus session completed
+          currentState.isFocus = false;
+          currentState.totalSessions += 1;
+          currentState.consecutiveSessions += 1;
           
-          if (state.consecutiveSessions >= 4) {
-            state.timeLeft = 15 * 60; // Long break
-            state.consecutiveSessions = 0;
+          // Check for long break
+          if (currentState.consecutiveSessions >= 4) {
+            currentState.timeLeft = 15 * 60; // 15 min long break
+            currentState.consecutiveSessions = 0;
           } else {
-            state.timeLeft = 5 * 60; // Short break
+            currentState.timeLeft = 5 * 60; // 5 min short break
           }
         } else {
-          // Break completed, switch to focus
-          state.isFocus = true;
-          state.timeLeft = 25 * 60;
+          // Break completed
+          currentState.isFocus = true;
+          currentState.timeLeft = 25 * 60; // 25 min focus
         }
       }
     }
   }
   
-  return state;
-};
-
-// Update the stored state with current calculations
-const updateStoredState = (newState) => {
-  timerState = { ...newState };
+  return currentState;
 };
 
 // Routes
 app.get('/api/timer/state', (req, res) => {
-  const currentState = getCurrentTimerState();
-  updateStoredState(currentState);
+  const currentState = calculateCurrentState(timerState);
+  timerState = currentState; // Update stored state
   res.json(currentState);
 });
 
 app.post('/api/timer/start', (req, res) => {
-  const currentState = getCurrentTimerState();
+  const currentState = calculateCurrentState(timerState);
   currentState.isRunning = true;
   currentState.lastUpdated = Date.now();
-  updateStoredState(currentState);
+  timerState = currentState;
   res.json({ success: true, state: currentState });
 });
 
 app.post('/api/timer/pause', (req, res) => {
-  const currentState = getCurrentTimerState();
+  const currentState = calculateCurrentState(timerState);
   currentState.isRunning = false;
   currentState.lastUpdated = Date.now();
-  updateStoredState(currentState);
+  timerState = currentState;
   res.json({ success: true, state: currentState });
 });
 
 app.post('/api/timer/reset', (req, res) => {
-  const currentState = getCurrentTimerState();
+  const currentState = calculateCurrentState(timerState);
   currentState.isRunning = false;
   currentState.timeLeft = currentState.isFocus ? 25 * 60 : 5 * 60;
   currentState.lastUpdated = Date.now();
-  updateStoredState(currentState);
+  timerState = currentState;
   res.json({ success: true, state: currentState });
 });
 
 app.post('/api/timer/switch', (req, res) => {
-  const currentState = getCurrentTimerState();
+  const currentState = calculateCurrentState(timerState);
   currentState.isFocus = !currentState.isFocus;
   currentState.timeLeft = currentState.isFocus ? 25 * 60 : 5 * 60;
   currentState.isRunning = false;
@@ -110,12 +106,12 @@ app.post('/api/timer/switch', (req, res) => {
     currentState.totalSessions += 1;
   }
   
-  updateStoredState(currentState);
+  timerState = currentState;
   res.json({ success: true, state: currentState });
 });
 
 app.get('/api/timer/stats', (req, res) => {
-  const currentState = getCurrentTimerState();
+  const currentState = calculateCurrentState(timerState);
   const stats = {
     totalSessions: currentState.totalSessions,
     consecutiveSessions: currentState.consecutiveSessions,
@@ -125,21 +121,15 @@ app.get('/api/timer/stats', (req, res) => {
   res.json(stats);
 });
 
-// Health check
+// Health check with current state
 app.get('/api/health', (req, res) => {
+  const currentState = calculateCurrentState(timerState);
   res.json({ 
     status: 'Server is running!',
     timestamp: new Date().toISOString(),
-    timerState: getCurrentTimerState()
+    state: currentState
   });
 });
 
 // Export for Vercel
 module.exports = app;
-
-// Only listen locally if not in Vercel
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
-  });
-}
