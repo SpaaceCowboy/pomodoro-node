@@ -3,146 +3,91 @@ const cors = require('cors');
 
 const app = express();
 
-// CORS - Allow your frontend domain
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://pomodoro-next-chi.vercel.app',
-    'https://pomodoro-node.vercel.app'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+// Enable CORS for all routes
+app.use(cors());
 app.use(express.json());
 
-// Store timer state in memory (will reset on serverless cold starts)
+// Simple in-memory storage
 let timerState = {
   isRunning: false,
   isFocus: true,
   timeLeft: 25 * 60,
   totalSessions: 0,
-  consecutiveSessions: 0,
-  lastUpdated: Date.now()
+  consecutiveSessions: 0
 };
 
-// Calculate current state based on elapsed time
-const calculateCurrentState = () => {
-  const currentState = { ...timerState };
-  
-  if (currentState.isRunning) {
-    const now = Date.now();
-    const elapsedSeconds = Math.floor((now - currentState.lastUpdated) / 1000);
-    
-    if (elapsedSeconds > 0) {
-      currentState.timeLeft = Math.max(0, currentState.timeLeft - elapsedSeconds);
-      currentState.lastUpdated = now;
-      
-      // Check if timer completed
-      if (currentState.timeLeft <= 0) {
-        currentState.isRunning = false;
-        
-        // Auto-switch modes
-        if (currentState.isFocus) {
-          // Focus completed
-          currentState.isFocus = false;
-          currentState.totalSessions += 1;
-          currentState.consecutiveSessions += 1;
-          
-          // Check for long break
-          if (currentState.consecutiveSessions >= 4) {
-            currentState.timeLeft = 15 * 60;
-            currentState.consecutiveSessions = 0;
-          } else {
-            currentState.timeLeft = 5 * 60;
-          }
-        } else {
-          // Break completed
-          currentState.isFocus = true;
-          currentState.timeLeft = 25 * 60;
-        }
-      }
-    }
-  }
-  
-  return currentState;
-};
+// Health check - test if this works first
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    message: 'Backend is working!',
+    timestamp: new Date().toISOString(),
+    state: timerState
+  });
+});
 
-// Update stored state
-const updateStoredState = (newState) => {
-  timerState = { ...newState };
-};
-
-// Routes
+// Get timer state
 app.get('/api/timer/state', (req, res) => {
-  const currentState = calculateCurrentState();
-  updateStoredState(currentState);
-  res.json(currentState);
+  res.json(timerState);
 });
 
+// Start timer
 app.post('/api/timer/start', (req, res) => {
-  const currentState = calculateCurrentState();
-  currentState.isRunning = true;
-  currentState.lastUpdated = Date.now();
-  updateStoredState(currentState);
-  res.json({ success: true, state: currentState });
+  timerState.isRunning = true;
+  res.json({ success: true, state: timerState });
 });
 
+// Pause timer
 app.post('/api/timer/pause', (req, res) => {
-  const currentState = calculateCurrentState();
-  currentState.isRunning = false;
-  currentState.lastUpdated = Date.now();
-  updateStoredState(currentState);
-  res.json({ success: true, state: currentState });
+  timerState.isRunning = false;
+  res.json({ success: true, state: timerState });
 });
 
+// Reset timer
 app.post('/api/timer/reset', (req, res) => {
-  const currentState = calculateCurrentState();
-  currentState.isRunning = false;
-  currentState.timeLeft = currentState.isFocus ? 25 * 60 : 5 * 60;
-  currentState.lastUpdated = Date.now();
-  updateStoredState(currentState);
-  res.json({ success: true, state: currentState });
+  timerState.isRunning = false;
+  timerState.timeLeft = timerState.isFocus ? 25 * 60 : 5 * 60;
+  res.json({ success: true, state: timerState });
 });
 
+// Switch mode
 app.post('/api/timer/switch', (req, res) => {
-  const currentState = calculateCurrentState();
-  currentState.isFocus = !currentState.isFocus;
-  currentState.timeLeft = currentState.isFocus ? 25 * 60 : 5 * 60;
-  currentState.isRunning = false;
-  currentState.lastUpdated = Date.now();
+  timerState.isFocus = !timerState.isFocus;
+  timerState.timeLeft = timerState.isFocus ? 25 * 60 : 5 * 60;
+  timerState.isRunning = false;
   
-  if (currentState.isFocus) {
-    currentState.totalSessions += 1;
+  if (timerState.isFocus) {
+    timerState.totalSessions += 1;
   }
   
-  updateStoredState(currentState);
-  res.json({ success: true, state: currentState });
+  res.json({ success: true, state: timerState });
 });
 
+// Get stats
 app.get('/api/timer/stats', (req, res) => {
-  const currentState = calculateCurrentState();
   const stats = {
-    totalSessions: currentState.totalSessions,
-    consecutiveSessions: currentState.consecutiveSessions,
-    nextLongBreak: Math.max(0, 4 - currentState.consecutiveSessions),
-    isLongBreakNext: currentState.consecutiveSessions >= 3
+    totalSessions: timerState.totalSessions,
+    consecutiveSessions: timerState.consecutiveSessions,
+    nextLongBreak: Math.max(0, 4 - timerState.consecutiveSessions),
+    isLongBreakNext: timerState.consecutiveSessions >= 3
   };
   res.json(stats);
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  const currentState = calculateCurrentState();
+// Handle all other routes
+app.get('*', (req, res) => {
   res.json({ 
-    status: 'Server is running!',
-    timestamp: new Date().toISOString(),
-    state: currentState
+    message: 'Pomodoro API',
+    endpoints: [
+      'GET  /api/health',
+      'GET  /api/timer/state',
+      'POST /api/timer/start',
+      'POST /api/timer/pause',
+      'POST /api/timer/reset',
+      'POST /api/timer/switch',
+      'GET  /api/timer/stats'
+    ]
   });
 });
 
-// Handle preflight requests
-app.options('*', cors());
-
+// Export for Vercel
 module.exports = app;
