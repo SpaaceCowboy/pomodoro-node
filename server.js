@@ -4,7 +4,7 @@ const cors = require('cors');
 
 // Create our app
 const app = express();
-
+const PORT = 5000
 
 // Allow frontend to talk to backend
 app.use(cors( {
