@@ -64,9 +64,39 @@ app.use('/api', timerRoutes);
 app.use('/api/auth', authRoutes)
 app.use('/api/profile', profileRoutes)
 
+// Error handling middleware (must be last)
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  
+  // Set CORS headers even on error
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  res.status(404).json({ message: 'Route not found' });
+});
+
 module.exports = app;
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Pomodoro backend listening on port ${PORT}`);
-});
+// Only listen if not in serverless environment (Vercel)
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`Pomodoro backend listening on port ${PORT}`);
+  });
+}

@@ -11,42 +11,75 @@ let timerState = {
   
   // Calculate current state with elapsed time
   const getCurrentState = () => {
-    const state = { ...timerState };
-    
-    if (state.isRunning) {
-      const now = Date.now();
-      const elapsedSeconds = Math.floor((now - state.lastUpdated) / 1000);
+    try {
+      // Ensure timerState has all required properties
+      if (!timerState || typeof timerState !== 'object') {
+        timerState = {
+          isRunning: false,
+          isFocus: true,
+          timeLeft: 25 * 60,
+          totalSessions: 0,
+          consecutiveSessions: 0,
+          lastUpdated: Date.now()
+        };
+      }
       
-      if (elapsedSeconds > 0) {
-        state.timeLeft = Math.max(0, state.timeLeft - elapsedSeconds);
-        state.lastUpdated = now;
+      const state = { ...timerState };
+      
+      // Ensure required properties exist with defaults
+      state.isRunning = state.isRunning || false;
+      state.isFocus = state.isFocus !== undefined ? state.isFocus : true;
+      state.timeLeft = typeof state.timeLeft === 'number' ? state.timeLeft : 25 * 60;
+      state.totalSessions = typeof state.totalSessions === 'number' ? state.totalSessions : 0;
+      state.consecutiveSessions = typeof state.consecutiveSessions === 'number' ? state.consecutiveSessions : 0;
+      state.lastUpdated = typeof state.lastUpdated === 'number' ? state.lastUpdated : Date.now();
+      
+      if (state.isRunning) {
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - state.lastUpdated) / 1000);
         
-        // Timer completed
-        if (state.timeLeft <= 0) {
-          state.isRunning = false;
+        if (elapsedSeconds > 0) {
+          state.timeLeft = Math.max(0, state.timeLeft - elapsedSeconds);
+          state.lastUpdated = now;
           
-          if (state.isFocus) {
-            // Focus completed - switch to break
-            state.isFocus = false;
-            state.totalSessions += 1;
-            state.consecutiveSessions += 1;
+          // Timer completed
+          if (state.timeLeft <= 0) {
+            state.isRunning = false;
             
-            if (state.consecutiveSessions >= 4) {
-              state.timeLeft = 15 * 60; // Long break
-              state.consecutiveSessions = 0;
+            if (state.isFocus) {
+              // Focus completed - switch to break
+              state.isFocus = false;
+              state.totalSessions += 1;
+              state.consecutiveSessions += 1;
+              
+              if (state.consecutiveSessions >= 4) {
+                state.timeLeft = 15 * 60; // Long break
+                state.consecutiveSessions = 0;
+              } else {
+                state.timeLeft = 5 * 60; // Short break
+              }
             } else {
-              state.timeLeft = 5 * 60; // Short break
+              // Break completed - switch to focus
+              state.isFocus = true;
+              state.timeLeft = 25 * 60;
             }
-          } else {
-            // Break completed - switch to focus
-            state.isFocus = true;
-            state.timeLeft = 25 * 60;
           }
         }
       }
+      
+      return state;
+    } catch (error) {
+      console.error('Error in getCurrentState:', error);
+      // Return a safe default state
+      return {
+        isRunning: false,
+        isFocus: true,
+        timeLeft: 25 * 60,
+        totalSessions: 0,
+        consecutiveSessions: 0,
+        lastUpdated: Date.now()
+      };
     }
-    
-    return state;
   };
   
   // Update stored state
@@ -71,9 +104,13 @@ exports.getHealth = (req, res, next) => {
 exports.getState = (req, res, next) => {
     try {
       const currentState = getCurrentState();
+      if (!currentState) {
+        throw new Error('Failed to get timer state');
+      }
       updateState(currentState);
       res.json(currentState);
     } catch (error) {
+      console.error('Error in getState:', error);
       next(error);
     }
 }
