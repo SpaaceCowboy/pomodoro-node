@@ -106,7 +106,6 @@ exports.postSwitch = (req, res, next) => {
     currentState.timeLeft = false; 
     currentState.lastUpdated = Date.now() 
     
-      // Don't increment totalSessions here - only increment when timer naturally completes
   // The increment happens in getCurrentState() when timeLeft reaches 0
   
   updateState(currentState);
