@@ -82,9 +82,17 @@ let timerState = {
     }
   };
   
-  // Update stored state
+  // Update stored state (atomic update)
   const updateState = (newState) => {
-    timerState = { ...newState };
+    // Ensure we're updating with a clean copy
+    timerState = {
+      isRunning: newState.isRunning || false,
+      isFocus: newState.isFocus !== undefined ? newState.isFocus : true,
+      timeLeft: typeof newState.timeLeft === 'number' ? newState.timeLeft : 25 * 60,
+      totalSessions: typeof newState.totalSessions === 'number' ? newState.totalSessions : 0,
+      consecutiveSessions: typeof newState.consecutiveSessions === 'number' ? newState.consecutiveSessions : 0,
+      lastUpdated: typeof newState.lastUpdated === 'number' ? newState.lastUpdated : Date.now()
+    };
   };
 //controller
 
@@ -107,8 +115,21 @@ exports.getState = (req, res, next) => {
       if (!currentState) {
         throw new Error('Failed to get timer state');
       }
+      
+      // Update state atomically before responding
       updateState(currentState);
-      res.json(currentState);
+      
+      // Return a clean copy to avoid any reference issues
+      const responseState = {
+        isRunning: currentState.isRunning,
+        isFocus: currentState.isFocus,
+        timeLeft: currentState.timeLeft,
+        totalSessions: currentState.totalSessions,
+        consecutiveSessions: currentState.consecutiveSessions,
+        lastUpdated: currentState.lastUpdated
+      };
+      
+      res.json(responseState);
     } catch (error) {
       console.error('Error in getState:', error);
       next(error);

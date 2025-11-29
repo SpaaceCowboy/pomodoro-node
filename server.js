@@ -8,7 +8,7 @@ const app = express();
 
 require('dotenv').config();
 
-// CORS - Allow your frontend domain (must be before other middleware)
+// CORS -
 const allowedOrigins = [
   'https://pomodoro-next-chi.vercel.app',
   'http://localhost:3000'
@@ -64,7 +64,7 @@ app.use('/api', timerRoutes);
 app.use('/api/auth', authRoutes)
 app.use('/api/profile', profileRoutes)
 
-// Error handling middleware (must be last)
+// Error handling middleware 
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   
@@ -93,7 +93,7 @@ app.use((req, res) => {
 
 module.exports = app;
 
-// Only listen if not in serverless environment (Vercel)
+// Only listen if not in serverless environment 
 if (process.env.VERCEL !== '1') {
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
