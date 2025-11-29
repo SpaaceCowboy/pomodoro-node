@@ -18,8 +18,8 @@ router.get('/health', getHealth);
 router.get('/timer/state', getState);
 router.post('/timer/start', postStart);
 router.post('/timer/pause', postPause);
-router.post('/timer/Reset', postReset)
-router.post('/timer/Switch', postSwitch)
+router.post('/timer/reset', postReset);
+router.post('/timer/switch', postSwitch);
 router.get('/timer/stats', getStats);
 
 

@@ -56,75 +56,124 @@ let timerState = {
 //controller
 
 exports.getHealth = (req, res, next) => {
-    const currentState = getCurrentState();
-    res.json({ 
-      message: 'Backend is working!',
-      timestamp: new Date().toISOString(),
-      state: currentState
-    })
+    try {
+      const currentState = getCurrentState();
+      res.json({ 
+        message: 'Backend is working!',
+        timestamp: new Date().toISOString(),
+        state: currentState
+      });
+    } catch (error) {
+      next(error);
+    }
 }
 
 exports.getState = (req, res, next) => {
-    const currentState = getCurrentState();
-    updateState(currentState)
-    res.json(currentState)
+    try {
+      const currentState = getCurrentState();
+      updateState(currentState);
+      res.json(currentState);
+    } catch (error) {
+      next(error);
+    }
 }
 
 exports.postStart = (req, res, next) => {
-    const currentState = getCurrentState();
-    currentState.isRunning = true;
-    currentState.lastUpdated = Date.now();
-    updateState(currentState);
-    res.json({ success: true, state: currentState });
+    try {
+      const currentState = getCurrentState();
+      currentState.isRunning = true;
+      currentState.lastUpdated = Date.now();
+      updateState(currentState);
+      res.json({ success: true, state: currentState });
+    } catch (error) {
+      next(error);
+    }
 }
 
 exports.postPause = (req, res, next) => {
-    const currentState = getCurrentState();
-    currentState.isRunning = false;
-    currentState.lastUpdated = Date.now();
-    updateState(currentState);
-    res.json({
+    try {
+      const currentState = getCurrentState();
+      currentState.isRunning = false;
+      currentState.lastUpdated = Date.now();
+      updateState(currentState);
+      res.json({
         success: true,
         state: currentState
-    })
+      });
+    } catch (error) {
+      next(error);
+    }
 }
 
 exports.postReset = (req, res, next) => {
-    const currentState = getCurrentState()
-    currentState.isRunning = false;
-    currentState.timeLeft = currentState.isFocus ? 25 * 60 : 5 * 60;
-    updateState(currentState);
-    res.json({
+    try {
+      const currentState = getCurrentState();
+      currentState.isRunning = false;
+      currentState.lastUpdated = Date.now();
+      
+      // Reset to appropriate time based on current mode
+      if (currentState.isFocus) {
+        currentState.timeLeft = 25 * 60; // Focus session
+      } else {
+        // Check if it should be a long break based on consecutive sessions
+        if (currentState.consecutiveSessions >= 4) {
+          currentState.timeLeft = 15 * 60; // Long break
+        } else {
+          currentState.timeLeft = 5 * 60; // Short break
+        }
+      }
+      
+      updateState(currentState);
+      res.json({
         success: true,
         state: currentState
-    })
+      });
+    } catch (error) {
+      next(error);
+    }
 }
 
 exports.postSwitch = (req, res, next) => {
-    const currentState = getCurrentState();
-    currentState.isFocus = !currentState.isFocus;
-    currentState.timeLeft = false; 
-    currentState.lastUpdated = Date.now() 
+    try {
+      const currentState = getCurrentState();
+      currentState.isRunning = false; // Stop timer when switching
+      currentState.isFocus = !currentState.isFocus;
+      currentState.lastUpdated = Date.now();
 
-    if (currentState.isFocus) {
-      currentState.totalSessions += 1;
+      // Set appropriate time based on new mode
+      if (currentState.isFocus) {
+        currentState.timeLeft = 25 * 60; // Focus session
+        currentState.totalSessions += 1;
+      } else {
+        // Determine break duration based on consecutive sessions
+        if (currentState.consecutiveSessions >= 4) {
+          currentState.timeLeft = 15 * 60; // Long break
+          currentState.consecutiveSessions = 0;
+        } else {
+          currentState.timeLeft = 5 * 60; // Short break
+        }
+      }
+      
+      updateState(currentState);
+      res.json({ success: true, state: currentState });
+    } catch (error) {
+      next(error);
     }
-    
-  // The increment happens in getCurrentState() when timeLeft reaches 0
-  
-  updateState(currentState);
-  res.json({ success: true, state: currentState });
 };
 
 
 exports.getStats = (req, res, next) => {
-    const currentState = getCurrentState()
-    const stats = {
+    try {
+      const currentState = getCurrentState();
+      const stats = {
         totalSessions: currentState.totalSessions,
         consecutiveSessions: currentState.consecutiveSessions,
         nextLongBreak: Math.max(0, 4 - currentState.consecutiveSessions),
         isLongBreakNext: currentState.consecutiveSessions >= 3
+      };
+      res.json(stats);
+    } catch (error) {
+      next(error);
     }
-    res.json(stats)
 }
 
