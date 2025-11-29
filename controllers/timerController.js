@@ -105,6 +105,10 @@ exports.postSwitch = (req, res, next) => {
     currentState.isFocus = !currentState.isFocus;
     currentState.timeLeft = false; 
     currentState.lastUpdated = Date.now() 
+
+    if (currentState.isFocus) {
+      currentState.totalSessions += 1;
+    }
     
   // The increment happens in getCurrentState() when timeLeft reaches 0
   
