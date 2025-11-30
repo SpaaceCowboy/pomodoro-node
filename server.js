@@ -11,6 +11,7 @@ require('dotenv').config();
 // CORS -
 const allowedOrigins = [
   'https://pomodoro-timer-teal-pi.vercel.app',
+  'https://pomodorotimer-d9n5.onrender.com',
   'http://localhost:3000'
 ];
 
