@@ -1,8 +1,7 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const User = require('../models/user')
-const RefreshToken = require('../models/refreshToken')
+const User = require('../models/user') 
 const { hashToken, rotateRefreshToken } = require('../utils/token')
 
 
@@ -112,6 +111,5 @@ router.post('/logout', async (req, res) => {
         })
     }
 })
-
 
 module.exports = router
