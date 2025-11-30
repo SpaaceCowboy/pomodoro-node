@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/user')
 const RefreshToken = require('../models/refreshToken')
-const { auth, firebaseInitialized } = require('../lib/firebase-admin')
 const { hashToken, rotateRefreshToken } = require('../utils/token')
 
 
@@ -114,59 +113,5 @@ router.post('/logout', async (req, res) => {
     }
 })
 
-//firebase 
-// Verify Firebase token and create session
-router.post('/verify-token', async (req, res) => {
-  try {
-    if (!firebaseInitialized || !auth) {
-      return res.status(503).json({ error: 'Firebase is not configured. Please set Firebase environment variables.' });
-    }
-
-    const { idToken } = req.body;
-    
-    if (!idToken) {
-      return res.status(400).json({ error: 'ID token is required' });
-    }
-
-    // Verify the Firebase ID token
-    const decodedToken = await auth.verifyIdToken(idToken);
-    const { uid, email, name, picture } = decodedToken;
-
-    // Here you can create a session or JWT token for your app
-    // For simplicity, we'll just return user info
-    res.json({
-      success: true,
-      user: {
-        uid,
-        email,
-        name,
-        picture
-      }
-    });
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    res.status(401).json({ error: 'Invalid token' });
-  }
-});
-
-// Get user data by UID
-router.get('/user/:uid', async (req, res) => {
-  try {
-    if (!firebaseInitialized || !auth) {
-      return res.status(503).json({ error: 'Firebase is not configured. Please set Firebase environment variables.' });
-    }
-
-    const { uid } = req.params;
-    const user = await auth.getUser(uid);
-    res.json({
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoURL: user.photoURL
-    });
-  } catch (error) {
-    res.status(404).json({ error: 'User not found' });
-  }
-});
 
 module.exports = router

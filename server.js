@@ -3,6 +3,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser')
 const connectDB = require('./config/db')
 const authRoutes = require('./routes/auth')
+const gRoutes = require('./routes/gAuth')
 const profileRoutes = require('./routes/profile')
 const app = express();
 
@@ -65,6 +66,7 @@ const startServer = async () => {
     const timerRoutes = require('./routes/timerRoutes');
     app.use('/api', timerRoutes);
     app.use('/api/auth', authRoutes)
+    app.use('/api/auth', gRoutes)
     app.use('/api/profile', profileRoutes)
 
     // Error handling middleware 
