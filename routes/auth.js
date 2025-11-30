@@ -1,8 +1,9 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const User = require('../models/user') 
-const { auth } = require('../lib/firebase-admin')
+const User = require('../models/user')
+const RefreshToken = require('../models/refreshToken')
+const { auth, firebaseInitialized } = require('../lib/firebase-admin')
 const { hashToken, rotateRefreshToken } = require('../utils/token')
 
 
@@ -117,6 +118,10 @@ router.post('/logout', async (req, res) => {
 // Verify Firebase token and create session
 router.post('/verify-token', async (req, res) => {
   try {
+    if (!firebaseInitialized || !auth) {
+      return res.status(503).json({ error: 'Firebase is not configured. Please set Firebase environment variables.' });
+    }
+
     const { idToken } = req.body;
     
     if (!idToken) {
@@ -147,6 +152,10 @@ router.post('/verify-token', async (req, res) => {
 // Get user data by UID
 router.get('/user/:uid', async (req, res) => {
   try {
+    if (!firebaseInitialized || !auth) {
+      return res.status(503).json({ error: 'Firebase is not configured. Please set Firebase environment variables.' });
+    }
+
     const { uid } = req.params;
     const user = await auth.getUser(uid);
     res.json({
