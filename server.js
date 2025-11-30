@@ -66,7 +66,6 @@ const startServer = async () => {
     const timerRoutes = require('./routes/timerRoutes');
     app.use('/api', timerRoutes);
     app.use('/api/auth', authRoutes)
-    app.use('/api/auth', gRoutes)
     app.use('/api/profile', profileRoutes)
 
     // Error handling middleware 
