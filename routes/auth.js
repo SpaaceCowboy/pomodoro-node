@@ -145,7 +145,7 @@ router.post('/verify-token', async (req, res) => {
 
 // Get user data by UID
 router.get('/user/:uid', async (req, res) => {
-  try {
+  try { 
     const { uid } = req.params;
     const user = await auth.getUser(uid);
     res.json({
