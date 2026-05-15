@@ -1,21 +1,24 @@
 {
-    "name": "pomodoro-backend",
-    "version": "1.0.0",
-    "main": "server.js",
-    "scripts": {
-        "start": "node server.js",
-        "dev": "node server.js"
-    },
-    "dependencies": {
-        "bcryptjs": "^3.0.3",
-        "cookie-parser": "^1.4.7",
-        "cors": "^2.8.5",
-        "dotenv": "^17.2.3",
-        "express": "^4.21.2",
-        "firebase": "^12.6.0",
-        "firebase-admin": "^13.6.0",
-        "jsonwebtoken": "^9.0.2",
-        "mongoose": "^9.0.0",
-        "nodemon": "^3.1.11"
-    }
+  "name": "pomodoro-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.8.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "prettier": "^3.3.3"
+  }
 }

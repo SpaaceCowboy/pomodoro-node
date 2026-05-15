@@ -13,9 +13,11 @@ function createJti() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-//signAccessToken creates a short token with the user ID and email.
+// signAccessToken creates a short token carrying only the user id.
+// Routes should read fresh user fields (e.g. email) from the DB via /profile/me
+// instead of from the token, so a profile change is reflected before refresh.
 function signAccessToken(user) {
-  const payload = { id: user._id.toString(), email: user.email };
+  const payload = { id: user._id.toString() };
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: ACCESS_TTL });
 }
 
@@ -33,16 +35,35 @@ async function persistRefreshToken({ user, refreshToken, jti, ip, userAgent }) {
   await RefreshToken.create({ user: user._id, tokenHash, jti, expiresAt, ip, userAgent });
 }
 
-//setRefreshCookie writes the HTTP-only cookie so the browser sends it to the refresh endpoint automatically.
-function setRefreshCookie(res, refreshToken) {
+function boolFromEnv(v) {
+  if (v === undefined) return undefined;
+  return v === '1' || v === 'true';
+}
+
+function getRefreshCookieOptions() {
   const isProd = process.env.NODE_ENV === 'production';
-  res.cookie('refresh_token', refreshToken, {
+
+  // For cross-site setups (e.g. frontend on Vercel, backend elsewhere), modern browsers require:
+  // SameSite=None AND Secure=true.
+  const sameSite = (process.env.REFRESH_COOKIE_SAMESITE || (isProd ? 'none' : 'lax')).toLowerCase();
+  const secure =
+    boolFromEnv(process.env.REFRESH_COOKIE_SECURE) ?? (sameSite === 'none' ? true : isProd);
+
+  const domain = process.env.REFRESH_COOKIE_DOMAIN || undefined;
+
+  return {
     httpOnly: true,
-    secure: isProd,
-    sameSite: 'strict',
+    secure,
+    sameSite,
+    domain,
     path: '/api/auth/refresh',
-    maxAge: REFRESH_TTL_SEC * 1000
-  });
+    maxAge: REFRESH_TTL_SEC * 1000,
+  };
+}
+
+// setRefreshCookie writes the HTTP-only cookie so the browser sends it to the refresh endpoint automatically.
+function setRefreshCookie(res, refreshToken) {
+  res.cookie('refresh_token', refreshToken, getRefreshCookieOptions());
 }
 
 //rotateRefreshToken revokes the old token, issues a new pair, and saves the new record. Rotation blocks replay if an old refresh token is stolen.
@@ -61,7 +82,7 @@ async function rotateRefreshToken(oldDoc, user, req, res) {
     refreshToken: newRefresh,
     jti: newJti,
     ip: req.ip,
-    userAgent: req.headers['user-agent'] || ''
+    userAgent: req.headers['user-agent'] || '',
   });
   setRefreshCookie(res, newRefresh);
   return { accessToken: newAccess };
@@ -73,6 +94,7 @@ module.exports = {
   signAccessToken,
   signRefreshToken,
   persistRefreshToken,
+  getRefreshCookieOptions,
   setRefreshCookie,
-  rotateRefreshToken
+  rotateRefreshToken,
 };

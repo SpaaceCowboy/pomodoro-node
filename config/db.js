@@ -8,9 +8,10 @@ const connectDB = async () => {
     console.log('MongoDB connected');
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
-    // Don't exit process - allow server to continue without DB for timer endpoints
-    // Only exit if DB is critical for your app
-    if (process.env.REQUIRE_DB === 'true') {
+
+    // This app relies on MongoDB for auth (users, refresh token rotation, timer persistence).
+    // Default: fail fast. Set REQUIRE_DB=false to override (not recommended).
+    if (process.env.REQUIRE_DB !== 'false') {
       process.exit(1);
     }
   }
