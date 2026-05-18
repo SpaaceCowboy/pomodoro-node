@@ -25,6 +25,8 @@ function safeUser(user) {
   return {
     id: user._id.toString(),
     name: user.name || '',
+    nickname: user.nickname || '',
+    avatarDataUrl: user.avatarDataUrl || '',
     username: user.username,
     email: user.email,
   };

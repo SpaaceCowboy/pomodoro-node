@@ -5,11 +5,12 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const settingsRoutes = require('./routes/settings');
+const pushRoutes = require('./routes/push');
 const app = express();
 
 require('dotenv').config();
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
 // CORS
@@ -47,6 +48,7 @@ const startServer = async () => {
     app.use('/api', timerRoutes);
     app.use('/api/auth', authRoutes);
     app.use('/api/profile', profileRoutes);
+    app.use('/api/push', pushRoutes);
     app.use('/api/settings', settingsRoutes);
 
     // Error handling middleware

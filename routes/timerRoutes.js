@@ -14,6 +14,7 @@ const {
   postSwitch,
   getSessions,
   getLabelStats,
+  mergeLocalTimerData,
   patchLabel,
 } = require('../controllers/timerController');
 
@@ -29,6 +30,7 @@ router.post('/timer/switch', auth, postSwitch);
 router.get('/timer/stats', auth, getStats);
 router.get('/timer/sessions', auth, getSessions);
 router.get('/timer/stats/labels', auth, getLabelStats);
+router.post('/timer/merge-local', auth, mergeLocalTimerData);
 router.patch('/timer/label', auth, patchLabel);
 
 module.exports = router;

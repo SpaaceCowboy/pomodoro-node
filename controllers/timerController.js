@@ -3,6 +3,7 @@ const TimerState = require('../models/timerState');
 const TimerSettings = require('../models/timerSettings');
 const Session = require('../models/session');
 const { MAX_AUTO_FINALIZE_ITERATIONS, focusSessionsUntilLongBreak } = require('../config/timer');
+const { sendSegmentCompletePushes } = require('../utils/pushService');
 
 // ---------- helpers ----------
 
@@ -16,6 +17,62 @@ async function getOrCreateSettings(userId) {
   let doc = await TimerSettings.findOne({ user: userId });
   if (!doc) doc = await TimerSettings.create({ user: userId });
   return doc;
+}
+
+const MERGEABLE_SETTINGS = [
+  'focusSec',
+  'shortBreakSec',
+  'longBreakSec',
+  'longBreakEvery',
+  'autoStartNext',
+  'notificationsEnabled',
+  'soundEnabled',
+  'ambientSound',
+  'ambientVolume',
+  'dailyFocusGoalMin',
+  'streakEnabled',
+];
+
+function parseMergeDate(value) {
+  const date = typeof value === 'number' ? new Date(value) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function sanitizeMergedSession(raw, userId) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw.mode !== 'focus' && raw.mode !== 'break') return null;
+
+  const startedAt = parseMergeDate(raw.startedAt);
+  const endedAt = parseMergeDate(raw.endedAt);
+  if (!startedAt || !endedAt || endedAt < startedAt) return null;
+
+  const durationSec = Math.round(Number(raw.durationSec));
+  if (!Number.isFinite(durationSec) || durationSec <= 0 || durationSec > 4 * 60 * 60) return null;
+
+  const pausedSec = Math.max(0, Math.round(Number(raw.pausedSec) || 0));
+
+  return {
+    user: userId,
+    mode: raw.mode,
+    isLongBreak: raw.mode === 'break' ? Boolean(raw.isLongBreak) : false,
+    startedAt,
+    endedAt,
+    durationSec,
+    pausedSec,
+    completed: raw.completed !== false,
+    label: raw.mode === 'focus' && typeof raw.label === 'string' ? raw.label.slice(0, 120) : '',
+  };
+}
+
+function sessionDedupeKey(session) {
+  return [
+    session.mode,
+    session.startedAt.getTime(),
+    session.endedAt.getTime(),
+    session.durationSec,
+    session.label || '',
+    session.completed ? '1' : '0',
+  ].join('|');
 }
 
 // Pure: returns the duration of the user's *current* segment given mode/flag/settings.
@@ -139,6 +196,7 @@ async function persistChanges(doc, pendingSessions) {
     await Session.insertMany(pendingSessions);
   }
   await doc.save();
+  await sendSegmentCompletePushes(doc.user, pendingSessions, doc);
 }
 
 // Day boundaries in the server's local TZ. Adequate for a single-user app.
@@ -539,6 +597,93 @@ exports.getLabelStats = async (req, res, next) => {
     ]);
 
     res.json({ labels: rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.mergeLocalTimerData = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const incomingSessions = Array.isArray(req.body.sessions) ? req.body.sessions : [];
+    const sanitized = incomingSessions
+      .slice(0, 500)
+      .map((session) => sanitizeMergedSession(session, userId))
+      .filter(Boolean);
+
+    const byKey = new Map();
+    for (const session of sanitized) {
+      byKey.set(sessionDedupeKey(session), session);
+    }
+
+    const uniqueSessions = [...byKey.values()];
+    let insertedSessions = 0;
+
+    if (uniqueSessions.length) {
+      const earliest = new Date(
+        Math.min(...uniqueSessions.map((session) => session.startedAt.getTime()))
+      );
+      const latest = new Date(
+        Math.max(...uniqueSessions.map((session) => session.endedAt.getTime()))
+      );
+      const existing = await Session.find({
+        user: userId,
+        startedAt: { $gte: earliest },
+        endedAt: { $lte: latest },
+      })
+        .select('mode startedAt endedAt durationSec label completed')
+        .lean();
+
+      const existingKeys = new Set(
+        existing.map((session) =>
+          [
+            session.mode,
+            new Date(session.startedAt).getTime(),
+            new Date(session.endedAt).getTime(),
+            session.durationSec,
+            session.label || '',
+            session.completed ? '1' : '0',
+          ].join('|')
+        )
+      );
+
+      const toInsert = uniqueSessions.filter(
+        (session) => !existingKeys.has(sessionDedupeKey(session))
+      );
+      if (toInsert.length) {
+        await Session.insertMany(toInsert);
+        insertedSessions = toInsert.length;
+      }
+    }
+
+    let settingsMerged = false;
+    if (req.body.settings && typeof req.body.settings === 'object') {
+      const settings = await getOrCreateSettings(userId);
+      for (const key of MERGEABLE_SETTINGS) {
+        if (req.body.settings[key] !== undefined) {
+          settings[key] = req.body.settings[key];
+          settingsMerged = true;
+        }
+      }
+      if (settingsMerged) {
+        try {
+          await settings.save();
+        } catch (err) {
+          if (err.name === 'ValidationError') {
+            return res.status(400).json({ message: err.message });
+          }
+          throw err;
+        }
+      }
+    }
+
+    res.json({
+      mergedSessions: insertedSessions,
+      skippedSessions: uniqueSessions.length - insertedSessions,
+      settingsMerged,
+    });
   } catch (err) {
     next(err);
   }
