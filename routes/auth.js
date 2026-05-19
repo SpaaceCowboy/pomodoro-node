@@ -27,6 +27,7 @@ function safeUser(user) {
     name: user.name || '',
     nickname: user.nickname || '',
     avatarDataUrl: user.avatarDataUrl || '',
+    publicProfileEnabled: Boolean(user.publicProfileEnabled),
     username: user.username,
     email: user.email,
   };

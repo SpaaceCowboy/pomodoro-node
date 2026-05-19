@@ -6,6 +6,8 @@ const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const settingsRoutes = require('./routes/settings');
 const pushRoutes = require('./routes/push');
+const socialRoutes = require('./routes/social');
+const publicProfileRoutes = require('./routes/publicProfile');
 const app = express();
 
 require('dotenv').config();
@@ -49,6 +51,8 @@ const startServer = async () => {
     app.use('/api/auth', authRoutes);
     app.use('/api/profile', profileRoutes);
     app.use('/api/push', pushRoutes);
+    app.use('/api/social', socialRoutes);
+    app.use('/api/public', publicProfileRoutes);
     app.use('/api/settings', settingsRoutes);
 
     // Error handling middleware

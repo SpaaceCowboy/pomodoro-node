@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema(
     name: { type: String, default: '' },
     nickname: { type: String, default: '' },
     avatarDataUrl: { type: String, default: '' },
+    publicProfileEnabled: { type: Boolean, default: false },
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },

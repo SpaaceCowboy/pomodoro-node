@@ -10,6 +10,7 @@ function safeUser(user) {
     name: user.name || '',
     nickname: user.nickname || '',
     avatarDataUrl: user.avatarDataUrl || '',
+    publicProfileEnabled: Boolean(user.publicProfileEnabled),
     username: user.username,
     email: user.email,
   };
@@ -80,6 +81,9 @@ router.patch('/me', auth, async (req, res) => {
     }
     if (Object.prototype.hasOwnProperty.call(req.body, 'avatarDataUrl')) {
       updates.avatarDataUrl = normalizeAvatarDataUrl(req.body.avatarDataUrl);
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'publicProfileEnabled')) {
+      updates.publicProfileEnabled = Boolean(req.body.publicProfileEnabled);
     }
 
     const user = await User.findByIdAndUpdate(req.user.id, updates, {

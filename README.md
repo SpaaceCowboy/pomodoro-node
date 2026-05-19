@@ -2,14 +2,13 @@
 
 # ⏱️ Pomodoro Timer
 
-### A Full-Stack Productivity App with Authentication & Session Tracking
+### A full-stack productivity app with optional sync, sharing, and session tracking
 
-A modern Pomodoro timer application with user authentication, server-side timer state management, and session tracking — built with a **Node.js/Express** backend and a **React** frontend.
+A modern Pomodoro timer application with optional authentication, server-side timer state management, session tracking, public profiles, friends, rooms, and PWA notifications — built with a **Node.js/Express** backend and a **Next.js** frontend.
 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-000?style=for-the-badge&logo=express&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 ![JWT](https://img.shields.io/badge/JWT-000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000?style=for-the-badge&logo=vercel&logoColor=white)
 
@@ -36,16 +35,20 @@ A modern Pomodoro timer application with user authentication, server-side timer 
 
 ## 🔍 About the Project
 
-This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute focus sessions followed by short breaks, with a longer break after every 4 sessions. What makes this different from a simple browser timer is that it's a **full-stack application**:
+This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute focus sessions followed by short breaks, with a longer break after every 4 sessions. What makes this different from a simple browser timer is that it can run local-first without an account, then sync authenticated users through a full-stack backend:
 
-- Timer state lives on the **server**, so your session survives page refreshes and device switches
-- **User authentication** with both email/password and Google sign-in (Firebase)
+- Timer state lives on the **server** for signed-in users, so sessions survive refreshes and device switches
+- Anonymous users can still use the frontend locally before deciding to sign in
+- **User authentication** with email/password, access tokens, and refresh-token rotation
 - **Secure token management** with JWT access/refresh token rotation
 - **Session statistics** tracking to monitor your productivity
+- Opt-in **public profiles** at `/u/:handle` for sharing weekly focus stats
+- Friends, live focus presence, and co-focus rooms for signed-in users
 
 > **Repository Structure:** This project is split across two repositories:
-> - [`pomodoro-node`](https://github.com/SpaaceCowboy/pomodoro-node) — Backend (Express API + MongoDB + Firebase Admin)
-> - [`PomodoroTimer`](https://github.com/SpaaceCowboy/PomodoroTimer) — Frontend (React)
+>
+> - [`pomodoro-node`](https://github.com/SpaaceCowboy/pomodoro-node) — Backend (Express API + MongoDB)
+> - [`PomodoroTimer`](https://github.com/SpaaceCowboy/PomodoroTimer) — Frontend (Next.js)
 
 ---
 
@@ -53,9 +56,12 @@ This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute foc
 
 - **⏱️ Server-Side Timer** — Timer state is managed on the backend with elapsed-time calculation, ensuring accuracy even when the client disconnects
 - **🔄 Auto Session Cycling** — Automatically transitions between focus → short break → focus → ... → long break after 4 consecutive sessions
-- **🔐 Dual Authentication** — Email/password registration with bcrypt hashing **and** Google Sign-In via Firebase Auth
+- **🔐 Email Authentication** — Email/password registration with bcrypt hashing
 - **🔑 Secure Token Rotation** — JWT access tokens (15min) + refresh tokens (7 days) with SHA-256 hashing, HTTP-only cookies, and automatic rotation
-- **📊 Session Statistics** — Track total completed sessions, consecutive sessions, and next long break countdown
+- **📊 Session Statistics** — Track completed sessions, labels, streaks, daily goals, weekly totals, and next long break countdown
+- **🌍 Public Profiles** — Signed-in users can opt in to a public `/u/:handle` profile showing weekly focus time, streak, and top labels
+- **👥 Friends & Rooms** — Friend requests, live focus presence, and shareable co-focus rooms
+- **🔔 PWA Push Notifications** — Authenticated browser subscriptions receive segment-end notifications
 - **🌐 Cross-Device Sync** — Since state lives on the server, start a timer on your laptop and check it on your phone
 - **🚀 Serverless Ready** — Vercel-compatible with environment detection for serverless deployment
 
@@ -66,15 +72,15 @@ This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute foc
 ```
 ┌──────────────────┐         ┌──────────────────────────────────┐
 │                  │         │         Backend (Express)         │
-│   React Client   │ ◄─────► │                                  │
+│   Next.js Client │ ◄─────► │                                  │
 │   (Vercel)       │  REST   │  ┌────────┐  ┌───────────────┐  │
 │                  │  API    │  │ Timer   │  │ Auth Routes   │  │
-└──────────────────┘         │  │ Engine  │  │ (JWT + Firebase│  │
+└──────────────────┘         │  │ Engine  │  │ (JWT)         │  │
                              │  └────────┘  └───────┬───────┘  │
                              │                      │          │
                              │         ┌────────────┴────┐     │
                              │         │    MongoDB      │     │
-                             │         │  (Users, Tokens)│     │
+                             │         │ Users, Sessions │     │
                              │         └─────────────────┘     │
                              └──────────────────────────────────┘
 ```
@@ -85,23 +91,22 @@ This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute foc
 
 ### Backend (`pomodoro-node`)
 
-| Category | Technology |
-|----------|-----------|
-| **Runtime** | Node.js |
-| **Framework** | Express.js |
-| **Database** | MongoDB (via Mongoose 9) |
-| **Auth** | JWT (jsonwebtoken) + Firebase Admin SDK |
-| **Password Hashing** | bcryptjs |
-| **Token Security** | SHA-256 hashing, HTTP-only cookies, refresh token rotation |
-| **Deployment** | Vercel (serverless) / Render |
+| Category             | Technology                                                 |
+| -------------------- | ---------------------------------------------------------- |
+| **Runtime**          | Node.js                                                    |
+| **Framework**        | Express.js                                                 |
+| **Database**         | MongoDB (via Mongoose)                                     |
+| **Auth**             | JWT (jsonwebtoken)                                         |
+| **Password Hashing** | bcryptjs                                                   |
+| **Token Security**   | SHA-256 hashing, HTTP-only cookies, refresh token rotation |
+| **Deployment**       | Vercel (serverless) / Render                               |
 
 ### Frontend (`PomodoroTimer`)
 
-| Category | Technology |
-|----------|-----------|
-| **Framework** | React |
-| **Auth Provider** | Firebase Auth (Google Sign-In) |
-| **Deployment** | Vercel |
+| Category       | Technology                 |
+| -------------- | -------------------------- |
+| **Framework**  | Next.js App Router + React |
+| **Deployment** | Vercel                     |
 
 ---
 
@@ -111,15 +116,19 @@ This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute foc
 
 All timer routes are prefixed with `/api`.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check — returns server status and current timer state |
-| `GET` | `/api/timer/state` | Get current timer state (calculates elapsed time server-side) |
-| `POST` | `/api/timer/start` | Start the timer |
-| `POST` | `/api/timer/pause` | Pause the timer |
-| `POST` | `/api/timer/reset` | Reset timer to current mode's default duration |
-| `POST` | `/api/timer/switch` | Toggle between focus and break modes |
-| `GET` | `/api/timer/stats` | Get session statistics |
+| Method  | Endpoint                  | Description                                                                           |
+| ------- | ------------------------- | ------------------------------------------------------------------------------------- |
+| `GET`   | `/api/health`             | Health check — returns server status and timestamp                                    |
+| `GET`   | `/api/timer/state`        | Get current timer state (calculates elapsed time server-side)                         |
+| `POST`  | `/api/timer/start`        | Start the timer                                                                       |
+| `POST`  | `/api/timer/pause`        | Pause the timer                                                                       |
+| `POST`  | `/api/timer/reset`        | Reset timer to current mode's default duration                                        |
+| `POST`  | `/api/timer/switch`       | Toggle between focus and break modes                                                  |
+| `GET`   | `/api/timer/stats`        | Get session statistics                                                                |
+| `GET`   | `/api/timer/sessions`     | List timer sessions, with optional `from`, `to`, `limit`, `mode`, and `label` filters |
+| `GET`   | `/api/timer/stats/labels` | Aggregate completed focus time by label                                               |
+| `POST`  | `/api/timer/merge-local`  | Merge anonymous local timer data into an authenticated account                        |
+| `PATCH` | `/api/timer/label`        | Update the current focus segment label                                                |
 
 #### Timer State Response
 
@@ -130,6 +139,7 @@ All timer routes are prefixed with `/api`.
   "timeLeft": 1320,
   "totalSessions": 3,
   "consecutiveSessions": 3,
+  "currentLabel": "Launch prep",
   "lastUpdated": 1706234567890
 }
 ```
@@ -141,7 +151,13 @@ All timer routes are prefixed with `/api`.
   "totalSessions": 7,
   "consecutiveSessions": 3,
   "nextLongBreak": 1,
-  "isLongBreakNext": true
+  "isLongBreakNext": true,
+  "todayFocus": 2,
+  "weekFocus": 9,
+  "todayFocusMin": 50,
+  "dailyFocusGoalMin": 60,
+  "streak": 4,
+  "streakEnabled": true
 }
 ```
 
@@ -149,28 +165,59 @@ All timer routes are prefixed with `/api`.
 
 All auth routes are prefixed with `/api/auth`.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register` | Register with email, username, password |
-| `POST` | `/api/auth/login` | Login — returns JWT access token |
-| `POST` | `/api/auth/refresh` | Rotate refresh token and get new access token |
-| `POST` | `/api/auth/logout` | Revoke refresh token and clear cookie |
-| `POST` | `/api/auth/verify-token` | Verify Firebase ID token (for Google Sign-In) |
-| `GET` | `/api/auth/user/:uid` | Get user data by Firebase UID |
+| Method | Endpoint             | Description                                   |
+| ------ | -------------------- | --------------------------------------------- |
+| `POST` | `/api/auth/register` | Register with email, username, password       |
+| `POST` | `/api/auth/login`    | Login — returns JWT access token              |
+| `POST` | `/api/auth/refresh`  | Rotate refresh token and get new access token |
+| `POST` | `/api/auth/logout`   | Revoke refresh token and clear cookie         |
 
 ### Profile Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/profile/me` | Get current authenticated user (requires JWT) |
+| Method  | Endpoint          | Description                                         |
+| ------- | ----------------- | --------------------------------------------------- |
+| `GET`   | `/api/profile/me` | Get current authenticated user (requires JWT)       |
+| `PATCH` | `/api/profile/me` | Update nickname, avatar, and public profile setting |
+
+### Public Profile Endpoints
+
+| Method | Endpoint                    | Description                              |
+| ------ | --------------------------- | ---------------------------------------- |
+| `GET`  | `/api/public/users/:handle` | Get an opt-in public profile by username |
+
+Public profiles are private by default. When enabled, the public response contains display name, username, avatar, joined date, weekly focus totals, all-time focus totals, current streak, and top labels. It does not expose email addresses.
+
+### Social Endpoints
+
+All social routes are prefixed with `/api/social` and require JWT auth.
+
+| Method   | Endpoint                         | Description                                            |
+| -------- | -------------------------------- | ------------------------------------------------------ |
+| `GET`    | `/api/social/users/search?q=`    | Search users by username, nickname, name, or email     |
+| `GET`    | `/api/social/friends`            | Get friends, pending requests, and live focus presence |
+| `POST`   | `/api/social/friends/request`    | Send a friend request                                  |
+| `POST`   | `/api/social/friends/:id/accept` | Accept a friend request                                |
+| `DELETE` | `/api/social/friends/:id`        | Remove or cancel a friendship                          |
+| `POST`   | `/api/social/rooms`              | Create a co-focus room                                 |
+| `POST`   | `/api/social/rooms/:code/join`   | Join a room by code                                    |
+| `GET`    | `/api/social/rooms/:code`        | Get room details and member presence                   |
+| `POST`   | `/api/social/rooms/:code/leave`  | Leave a room                                           |
+
+### Push Endpoints
+
+All push routes are prefixed with `/api/push` and require JWT auth.
+
+| Method   | Endpoint              | Description                           |
+| -------- | --------------------- | ------------------------------------- |
+| `GET`    | `/api/push/vapid-key` | Get the browser push VAPID public key |
+| `POST`   | `/api/push/subscribe` | Save a browser push subscription      |
+| `DELETE` | `/api/push/subscribe` | Remove a browser push subscription    |
 
 ---
 
 ## 🔐 Authentication Flow
 
-The app supports **two authentication methods**:
-
-### 1. Email/Password (Custom JWT)
+The app uses email/password authentication with short-lived access tokens and rotating refresh tokens.
 
 ```
 Register → Password hashed (bcrypt) → Stored in MongoDB
@@ -180,19 +227,13 @@ Logout → Revoke refresh token → Clear HTTP-only cookie
 ```
 
 **Security measures:**
+
 - Passwords hashed with **bcrypt** (10 rounds)
 - Access tokens expire in **15 minutes**
 - Refresh tokens stored as **SHA-256 hashes** in MongoDB
 - Refresh tokens delivered via **HTTP-only, Secure, SameSite=Strict** cookies
 - **Token rotation** — each refresh invalidates the old token and issues a new one
 - Revoked tokens tracked with `revokedAt` timestamp and `replacedBy` chain
-
-### 2. Google Sign-In (Firebase)
-
-```
-Client → Firebase Auth popup → Get ID Token → Send to /api/auth/verify-token
-Backend → Firebase Admin SDK verifies token → Return user info
-```
 
 ---
 
@@ -202,7 +243,6 @@ Backend → Firebase Admin SDK verifies token → Return user info
 
 - **Node.js** 18+
 - **MongoDB** (local or Atlas)
-- **Firebase** project (for Google auth)
 
 ### Backend Setup
 
@@ -221,7 +261,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The backend will be running at `http://localhost:4000`.
+The backend will be running at `http://localhost:4002` unless `PORT` is set.
 
 ### Frontend Setup
 
@@ -234,10 +274,10 @@ cd PomodoroTimer
 npm install
 
 # Start development server
-npm start
+npm run dev
 ```
 
-The frontend will be running at `http://localhost:3000`.
+The frontend will be running at `http://localhost:3002`.
 
 ---
 
@@ -247,8 +287,9 @@ Create a `.env` file in the backend root:
 
 ```env
 # Server
-PORT=4000
+PORT=4002
 NODE_ENV=development
+CORS_ORIGINS=http://localhost:3002
 
 # MongoDB
 MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/pomodoro
@@ -257,13 +298,10 @@ MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/pomodoro
 JWT_SECRET=your-access-token-secret
 REFRESH_TOKEN_SECRET=your-refresh-token-secret
 
-# Firebase Admin SDK
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY_ID=your-private-key-id
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
-FIREBASE_CLIENT_ID=000000000000000000000
-FIREBASE_CLIENT_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/...
+# PWA Push
+VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+VAPID_SUBJECT=mailto:you@example.com
 ```
 
 ---
@@ -272,10 +310,10 @@ FIREBASE_CLIENT_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/...
 
 The project is deployed as two services:
 
-| Service | Platform | URL |
-|---------|----------|-----|
-| **Frontend** | Vercel | [pomodoro-timer-teal-pi.vercel.app](https://pomodoro-timer-teal-pi.vercel.app) |
-| **Backend** | Render | [pomodorotimer-d9n5.onrender.com](https://pomodorotimer-d9n5.onrender.com) |
+| Service      | Platform | URL                                                                            |
+| ------------ | -------- | ------------------------------------------------------------------------------ |
+| **Frontend** | Vercel   | [pomodoro-timer-teal-pi.vercel.app](https://pomodoro-timer-teal-pi.vercel.app) |
+| **Backend**  | Render   | [pomodorotimer-d9n5.onrender.com](https://pomodorotimer-d9n5.onrender.com)     |
 
 The backend includes a `vercel.json` configuration and automatically detects the Vercel serverless environment to skip `app.listen()` in production.
 
@@ -285,13 +323,13 @@ The backend includes a `vercel.json` configuration and automatically detects the
 
 The Pomodoro cycle follows these durations:
 
-| Mode | Duration |
-|------|----------|
-| **Focus** | 25 minutes |
-| **Short Break** | 5 minutes |
-| **Long Break** | 15 minutes (after 4 consecutive focus sessions) |
+| Mode            | Duration                                        |
+| --------------- | ----------------------------------------------- |
+| **Focus**       | 25 minutes                                      |
+| **Short Break** | 5 minutes                                       |
+| **Long Break**  | 15 minutes (after 4 consecutive focus sessions) |
 
-The timer state is stored in-memory on the server. When the client requests the current state, the server calculates elapsed time since `lastUpdated` and returns the accurate remaining time — this means the timer keeps running even if the client disconnects.
+Signed-in timer state is stored in MongoDB. When the client requests the current state, the server calculates elapsed wall-clock time from the stored segment start and remaining duration, finalizes any completed segments, writes session records, and returns the accurate remaining time. This means the timer keeps running even if the client disconnects.
 
 ---
 
