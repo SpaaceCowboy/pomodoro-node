@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
@@ -10,6 +11,8 @@ const pushRoutes = require('./routes/push');
 const socialRoutes = require('./routes/social');
 const publicProfileRoutes = require('./routes/publicProfile');
 const app = express();
+let httpServer;
+let shutdownPromise;
 
 require('dotenv').config();
 
@@ -86,7 +89,7 @@ const startServer = async () => {
     // Only listen if not in serverless environment
     if (process.env.VERCEL !== '1') {
       const PORT = process.env.PORT || 4002;
-      app.listen(PORT, () => {
+      httpServer = app.listen(PORT, () => {
         console.log(`Pomodoro backend listening on port ${PORT}`);
       });
     }
@@ -96,7 +99,47 @@ const startServer = async () => {
   }
 };
 
+async function shutdown(signal = 'shutdown') {
+  if (shutdownPromise) return shutdownPromise;
+
+  shutdownPromise = (async () => {
+    console.log(`Received ${signal}; shutting down gracefully`);
+
+    if (httpServer) {
+      await Promise.race([
+        new Promise((resolve, reject) => {
+          httpServer.close((err) => (err ? reject(err) : resolve()));
+        }),
+        new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            httpServer.closeAllConnections?.();
+            resolve();
+          }, 10_000);
+          timeout.unref();
+        }),
+      ]);
+    }
+
+    if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+  })();
+
+  return shutdownPromise;
+}
+
+function handleSignal(signal) {
+  shutdown(signal).catch((err) => {
+    console.error('Graceful shutdown failed:', err);
+    process.exitCode = 1;
+  });
+}
+
+if (process.env.VERCEL !== '1') {
+  process.once('SIGTERM', () => handleSignal('SIGTERM'));
+  process.once('SIGINT', () => handleSignal('SIGINT'));
+}
+
 const ready = startServer();
 
 module.exports = app;
 module.exports.ready = ready;
+module.exports.shutdown = shutdown;

@@ -26,7 +26,7 @@ before(async () => {
 after(async () => {
   if (!hasTestDatabase) return;
   await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await app.shutdown('test cleanup');
 });
 
 test('health endpoint is available', { skip: !hasTestDatabase }, async () => {
