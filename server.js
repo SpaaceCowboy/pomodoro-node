@@ -69,7 +69,7 @@ const startServer = async () => {
     app.use('/api/settings', settingsRoutes);
 
     // Error handling middleware
-    app.use((err, req, res, next) => {
+    app.use((err, _req, res, _next) => {
       console.error('Error:', err);
       const status = err.status || 500;
       res.status(status).json({
@@ -96,6 +96,7 @@ const startServer = async () => {
   }
 };
 
-startServer();
+const ready = startServer();
 
 module.exports = app;
+module.exports.ready = ready;
