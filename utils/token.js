@@ -56,7 +56,9 @@ function getRefreshCookieOptions() {
     secure,
     sameSite,
     domain,
-    path: '/api/auth/refresh',
+    // Restrict the credential to auth endpoints while allowing both refresh
+    // rotation and logout revocation to receive it.
+    path: '/api/auth',
     maxAge: REFRESH_TTL_SEC * 1000,
   };
 }
@@ -64,6 +66,20 @@ function getRefreshCookieOptions() {
 // setRefreshCookie writes the HTTP-only cookie so the browser sends it to the refresh endpoint automatically.
 function setRefreshCookie(res, refreshToken) {
   res.cookie('refresh_token', refreshToken, getRefreshCookieOptions());
+}
+
+function clearRefreshCookies(res) {
+  const opts = getRefreshCookieOptions();
+  const baseOptions = {
+    httpOnly: opts.httpOnly,
+    secure: opts.secure,
+    sameSite: opts.sameSite,
+    domain: opts.domain,
+  };
+
+  res.clearCookie('refresh_token', { ...baseOptions, path: opts.path });
+  // Remove cookies issued before the path changed to /api/auth.
+  res.clearCookie('refresh_token', { ...baseOptions, path: '/api/auth/refresh' });
 }
 
 //rotateRefreshToken revokes the old token, issues a new pair, and saves the new record. Rotation blocks replay if an old refresh token is stolen.
@@ -96,5 +112,6 @@ module.exports = {
   persistRefreshToken,
   getRefreshCookieOptions,
   setRefreshCookie,
+  clearRefreshCookies,
   rotateRefreshToken,
 };

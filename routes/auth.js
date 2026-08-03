@@ -12,8 +12,8 @@ const {
   signRefreshToken,
   persistRefreshToken,
   rotateRefreshToken,
-  getRefreshCookieOptions,
   setRefreshCookie,
+  clearRefreshCookies,
 } = require('../utils/token');
 
 const router = express.Router();
@@ -180,15 +180,7 @@ router.post('/logout', async (req, res) => {
       }
     }
 
-    // clearCookie must match the cookie options that were used to set it
-    const opts = getRefreshCookieOptions();
-    res.clearCookie('refresh_token', {
-      httpOnly: opts.httpOnly,
-      secure: opts.secure,
-      sameSite: opts.sameSite,
-      domain: opts.domain,
-      path: opts.path,
-    });
+    clearRefreshCookies(res);
 
     res.json({ message: 'Logged out' });
   } catch (err) {
