@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const RefreshToken = require('../models/refreshToken');
+const { createRateLimit, clientIp } = require('../middleware/rateLimit');
 
 const {
   hashToken,
@@ -16,6 +17,27 @@ const {
 } = require('../utils/token');
 
 const router = express.Router();
+
+const registerLimit = createRateLimit({
+  scope: 'auth:register:ip',
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+});
+const loginIpLimit = createRateLimit({ scope: 'auth:login:ip', windowMs: 15 * 60 * 1000, max: 20 });
+const loginAccountLimit = createRateLimit({
+  scope: 'auth:login:account',
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) =>
+    String(req.body?.email || '')
+      .trim()
+      .toLowerCase() || clientIp(req),
+});
+const refreshLimit = createRateLimit({
+  scope: 'auth:refresh:ip',
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+});
 
 function ensureJwtSecrets() {
   return Boolean(process.env.JWT_SECRET && process.env.REFRESH_TOKEN_SECRET);
@@ -52,7 +74,7 @@ async function issueTokens(user, req, res) {
 }
 
 // Register + auto-login (sets refresh cookie)
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimit, async (req, res) => {
   try {
     if (!ensureJwtSecrets()) {
       return res.status(500).json({ message: 'JWT secrets are not configured' });
@@ -83,7 +105,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login (sets refresh cookie)
-router.post('/login', async (req, res) => {
+router.post('/login', loginIpLimit, loginAccountLimit, async (req, res) => {
   try {
     if (!ensureJwtSecrets()) {
       return res.status(500).json({ message: 'JWT secrets are not configured' });
@@ -110,7 +132,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Reads the refresh cookie, verifies it, checks the DB entry, and rotates it.
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', refreshLimit, async (req, res) => {
   try {
     if (!ensureJwtSecrets()) {
       return res.status(500).json({ message: 'JWT secrets are not configured' });
