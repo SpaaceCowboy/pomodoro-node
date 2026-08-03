@@ -5,6 +5,7 @@ const User = require('../models/user');
 const Friendship = require('../models/friendship');
 const FocusRoom = require('../models/focusRoom');
 const { safeUser, getPresenceForUsers } = require('../utils/presence');
+const { generateRoomCode } = require('../utils/roomCode');
 
 const router = express.Router();
 
@@ -148,10 +149,6 @@ router.delete('/friends/:id', auth, async (req, res, next) => {
   }
 });
 
-function roomCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
-
 async function serializeRoom(room) {
   await room.populate('members.user', 'name nickname avatarDataUrl username');
   const users = room.members.map((member) => member.user).filter(Boolean);
@@ -175,7 +172,7 @@ router.post('/rooms', auth, async (req, res, next) => {
     for (let i = 0; i < 5; i += 1) {
       try {
         room = await FocusRoom.create({
-          code: roomCode(),
+          code: generateRoomCode(),
           name,
           host: req.user.id,
           members: [{ user: req.user.id }],

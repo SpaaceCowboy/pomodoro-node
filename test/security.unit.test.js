@@ -8,6 +8,7 @@ const {
 } = require('../utils/authValidation');
 const { clearRefreshCookies, getRefreshCookieOptions } = require('../utils/token');
 const { validateEnvironment } = require('../config/env');
+const { generateRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } = require('../utils/roomCode');
 
 test('registration validation accepts strong credentials and rejects unsafe boundaries', () => {
   const valid = {
@@ -34,6 +35,14 @@ test('registration validation accepts strong credentials and rejects unsafe boun
 test('account identifiers and display names normalize consistently', () => {
   assert.equal(normalizeIdentity(' User@Example.COM '), 'user@example.com');
   assert.equal(normalizeName('  Test   Person '), 'Test Person');
+});
+
+test('room codes use the cryptographically secure restricted alphabet', () => {
+  const codes = Array.from({ length: 200 }, () => generateRoomCode());
+  const allowed = new RegExp(`^[${ROOM_CODE_ALPHABET}]{${ROOM_CODE_LENGTH}}$`);
+
+  assert.ok(codes.every((code) => allowed.test(code)));
+  assert.equal(new Set(codes).size, codes.length);
 });
 
 test('CSRF middleware requires matching well-formed cookie and header tokens', () => {
