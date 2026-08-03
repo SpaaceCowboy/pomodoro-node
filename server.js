@@ -1,3 +1,6 @@
+require('dotenv').config();
+
+const { setupErrorHandler, captureException } = require('./config/observability');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -10,16 +13,22 @@ const settingsRoutes = require('./routes/settings');
 const pushRoutes = require('./routes/push');
 const socialRoutes = require('./routes/social');
 const publicProfileRoutes = require('./routes/publicProfile');
+const {
+  logger,
+  requestLogger,
+  requestMetrics,
+  metricsHandler,
+} = require('./middleware/observability');
 const app = express();
 let httpServer;
 let shutdownPromise;
-
-require('dotenv').config();
 
 const isProduction = process.env.NODE_ENV === 'production';
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.use(requestLogger);
+app.use(requestMetrics);
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -70,10 +79,14 @@ const startServer = async () => {
     app.use('/api/social', socialRoutes);
     app.use('/api/public', publicProfileRoutes);
     app.use('/api/settings', settingsRoutes);
+    app.get('/api/metrics', metricsHandler);
+
+    setupErrorHandler(app);
 
     // Error handling middleware
     app.use((err, _req, res, _next) => {
-      console.error('Error:', err);
+      captureException(err, { requestId: _req.id });
+      _req.log?.error({ err }, 'Request failed');
       const status = err.status || 500;
       res.status(status).json({
         message: status < 500 ? err.message : 'Internal Server Error',
@@ -90,11 +103,12 @@ const startServer = async () => {
     if (process.env.VERCEL !== '1') {
       const PORT = process.env.PORT || 4002;
       httpServer = app.listen(PORT, () => {
-        console.log(`Pomodoro backend listening on port ${PORT}`);
+        logger.info({ port: PORT }, 'Pomodoro backend listening');
       });
     }
   } catch (error) {
-    console.error('Failed to start server:', error);
+    captureException(error, { phase: 'startup' });
+    logger.fatal({ err: error }, 'Failed to start server');
     process.exit(1);
   }
 };
@@ -103,7 +117,7 @@ async function shutdown(signal = 'shutdown') {
   if (shutdownPromise) return shutdownPromise;
 
   shutdownPromise = (async () => {
-    console.log(`Received ${signal}; shutting down gracefully`);
+    logger.info({ signal }, 'Shutting down gracefully');
 
     if (httpServer) {
       await Promise.race([
@@ -128,7 +142,8 @@ async function shutdown(signal = 'shutdown') {
 
 function handleSignal(signal) {
   shutdown(signal).catch((err) => {
-    console.error('Graceful shutdown failed:', err);
+    captureException(err, { phase: 'shutdown', signal });
+    logger.error({ err, signal }, 'Graceful shutdown failed');
     process.exitCode = 1;
   });
 }

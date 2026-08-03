@@ -1,5 +1,6 @@
 const webpush = require('web-push');
 const PushSubscription = require('../models/pushSubscription');
+const logger = require('./logger');
 
 function isConfigured() {
   return Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
@@ -58,7 +59,7 @@ async function sendToUser(userId, payload) {
           await PushSubscription.deleteOne({ endpoint: sub.endpoint });
           return;
         }
-        console.error('Push send failed:', err.message || err);
+        logger.error({ err }, 'Push send failed');
       }
     })
   );
@@ -80,7 +81,7 @@ async function sendSegmentCompletePushes(userId, pendingSessions, doc) {
   try {
     await sendToUser(userId, payload);
   } catch (err) {
-    console.error('Push notification error:', err.message || err);
+    logger.error({ err }, 'Push notification error');
   }
 }
 

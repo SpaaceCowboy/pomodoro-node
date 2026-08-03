@@ -10,6 +10,7 @@ const {
   normalizeName,
   validateRegistration,
 } = require('../utils/authValidation');
+const logger = require('../utils/logger');
 
 const {
   hashToken,
@@ -120,7 +121,7 @@ router.post('/register', registerLimit, csrfProtection, async (req, res) => {
 
     res.status(201).json({ accessToken, user: safeUser(newUser) });
   } catch (err) {
-    console.error('Register error:', err);
+    logger.error({ err }, 'Registration failed');
     if (err?.code === 11000) return res.status(400).json({ message: 'User already exists' });
     return res.status(500).json({ message: 'Server error' });
   }
@@ -151,7 +152,7 @@ router.post('/login', loginIpLimit, loginAccountLimit, csrfProtection, async (re
 
     res.json({ accessToken, user: safeUser(user) });
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error({ err }, 'Login failed');
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -186,7 +187,7 @@ router.post('/refresh', refreshLimit, csrfProtection, async (req, res) => {
     const result = await rotateRefreshToken(doc, doc.user, req, res);
     return res.json({ accessToken: result.accessToken });
   } catch (err) {
-    console.error('Refresh error:', err);
+    logger.error({ err }, 'Refresh failed');
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -209,7 +210,7 @@ router.post('/logout', refreshLimit, csrfProtection, async (req, res) => {
 
     res.json({ message: 'Logged out' });
   } catch (err) {
-    console.error('Logout error:', err);
+    logger.error({ err }, 'Logout failed');
     res.status(500).json({ message: 'Server error' });
   }
 });

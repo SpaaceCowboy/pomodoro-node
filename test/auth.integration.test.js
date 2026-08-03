@@ -32,6 +32,13 @@ after(async () => {
 test('health endpoint is available', { skip: !hasTestDatabase }, async () => {
   const response = await request(app).get('/api/health').expect(200);
   assert.equal(response.body.status, 'ok');
+  assert.match(response.headers['x-request-id'], /^[a-zA-Z0-9._-]{8,64}$/);
+});
+
+test('metrics endpoint exposes HTTP and runtime metrics', { skip: !hasTestDatabase }, async () => {
+  const response = await request(app).get('/api/metrics').expect(200);
+  assert.match(response.text, /pomodoro_http_requests_total/);
+  assert.match(response.text, /pomodoro_process_cpu_seconds_total/);
 });
 
 test('protected endpoints reject missing access tokens', { skip: !hasTestDatabase }, async () => {

@@ -1,6 +1,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const User = require('../models/user');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -59,7 +60,7 @@ router.get('/me', auth, async (req, res) => {
     }
     res.json({ user: safeUser(user) });
   } catch (err) {
-    console.error('Profile error:', err);
+    logger.error({ err }, 'Profile lookup failed');
     res.status(500).json({
       message: 'Server error',
     });
@@ -98,7 +99,7 @@ router.patch('/me', auth, async (req, res) => {
 
     res.json({ user: safeUser(user) });
   } catch (err) {
-    console.error('Profile update error:', err);
+    logger.error({ err }, 'Profile update failed');
     res.status(err.status || 500).json({
       message: err.status ? err.message : 'Server error',
     });
