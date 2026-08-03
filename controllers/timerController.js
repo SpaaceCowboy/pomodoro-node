@@ -278,6 +278,7 @@ async function computeStreak(userId, dailyGoalMin) {
 
 exports.getHealth = (req, res) => {
   res.json({
+    status: 'ok',
     message: 'Backend is working!',
     timestamp: new Date().toISOString(),
   });
