@@ -109,6 +109,7 @@ const startServer = async () => {
   } catch (error) {
     captureException(error, { phase: 'startup' });
     logger.fatal({ err: error }, 'Failed to start server');
+    if (process.env.VERCEL === '1') throw error;
     process.exit(1);
   }
 };
@@ -155,6 +156,23 @@ if (process.env.VERCEL !== '1') {
 
 const ready = startServer();
 
-module.exports = app;
-module.exports.ready = ready;
-module.exports.shutdown = shutdown;
+async function serverlessHandler(req, res) {
+  try {
+    await ready;
+    return app(req, res);
+  } catch (err) {
+    captureException(err, { phase: 'serverless-initialization' });
+    logger.error({ err }, 'Serverless initialization failed');
+    if (!res.headersSent) {
+      return res.status(503).json({ message: 'Service temporarily unavailable' });
+    }
+    return res.end();
+  }
+}
+
+const exportedHandler = process.env.VERCEL === '1' ? serverlessHandler : app;
+exportedHandler.app = app;
+exportedHandler.ready = ready;
+exportedHandler.shutdown = shutdown;
+
+module.exports = exportedHandler;
