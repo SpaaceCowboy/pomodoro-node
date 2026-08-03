@@ -62,7 +62,6 @@ router.get('/me', auth, async (req, res) => {
     console.error('Profile error:', err);
     res.status(500).json({
       message: 'Server error',
-      error: err.message,
     });
   }
 });
@@ -102,7 +101,6 @@ router.patch('/me', auth, async (req, res) => {
     console.error('Profile update error:', err);
     res.status(err.status || 500).json({
       message: err.status ? err.message : 'Server error',
-      error: err.status ? undefined : err.message,
     });
   }
 });

@@ -71,8 +71,9 @@ const startServer = async () => {
     // Error handling middleware
     app.use((err, req, res, next) => {
       console.error('Error:', err);
-      res.status(err.status || 500).json({
-        message: err.message || 'Internal Server Error',
+      const status = err.status || 500;
+      res.status(status).json({
+        message: status < 500 ? err.message : 'Internal Server Error',
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
       });
     });

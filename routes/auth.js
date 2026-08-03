@@ -113,7 +113,8 @@ router.post('/register', registerLimit, async (req, res) => {
     res.status(201).json({ accessToken, user: safeUser(newUser) });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    if (err?.code === 11000) return res.status(400).json({ message: 'User already exists' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -143,7 +144,7 @@ router.post('/login', loginIpLimit, loginAccountLimit, async (req, res) => {
     res.json({ accessToken, user: safeUser(user) });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
