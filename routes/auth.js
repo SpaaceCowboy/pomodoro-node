@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const RefreshToken = require('../models/refreshToken');
 const { createRateLimit, clientIp } = require('../middleware/rateLimit');
+const { validateRegistration } = require('../utils/authValidation');
 
 const {
   hashToken,
@@ -82,9 +83,8 @@ router.post('/register', registerLimit, async (req, res) => {
 
     const { name = '', username, email, password } = req.body;
 
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: 'username, email, and password are required' });
-    }
+    const validationError = validateRegistration({ name, username, email, password });
+    if (validationError) return res.status(400).json({ message: validationError });
 
     const existing = await User.findOne({ $or: [{ email }, { username }] });
     if (existing) {
