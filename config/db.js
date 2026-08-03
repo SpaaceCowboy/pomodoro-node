@@ -3,7 +3,8 @@ const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
-    // Use MongoDB Atlas connection string from environment, or localhost for development
+    // Production configuration is validated before startup. Local development
+    // retains a convenient database fallback.
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/pomodoro';
     await mongoose.connect(mongoURI);
     logger.info('MongoDB connected');

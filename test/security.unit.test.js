@@ -7,6 +7,7 @@ const {
   validateRegistration,
 } = require('../utils/authValidation');
 const { clearRefreshCookies, getRefreshCookieOptions } = require('../utils/token');
+const { validateEnvironment } = require('../config/env');
 
 test('registration validation accepts strong credentials and rejects unsafe boundaries', () => {
   const valid = {
@@ -81,5 +82,43 @@ test('CSRF and refresh cookies use restricted auth paths', () => {
   assert.deepEqual(
     cleared.map(([, options]) => options.path),
     ['/api/auth', '/api/auth/refresh']
+  );
+});
+
+test('production environment validation rejects missing and unsafe configuration', () => {
+  assert.throws(
+    () => validateEnvironment({ NODE_ENV: 'production' }),
+    (err) => err.code === 'INVALID_ENVIRONMENT' && err.message.includes('MONGODB_URI')
+  );
+
+  assert.throws(
+    () =>
+      validateEnvironment({
+        NODE_ENV: 'production',
+        MONGODB_URI: 'mongodb://database/pomodoro',
+        JWT_SECRET: 'same-secret-that-is-long-enough-123',
+        REFRESH_TOKEN_SECRET: 'same-secret-that-is-long-enough-123',
+        CORS_ORIGINS: 'http://insecure.example.com/path',
+        REFRESH_COOKIE_SECURE: 'false',
+      }),
+    (err) =>
+      err.message.includes('must be different') &&
+      err.message.includes('HTTPS origin') &&
+      err.message.includes('must be Secure')
+  );
+});
+
+test('production environment validation accepts a complete secure configuration', () => {
+  assert.doesNotThrow(() =>
+    validateEnvironment({
+      NODE_ENV: 'production',
+      MONGODB_URI: 'mongodb+srv://database.example.com/pomodoro',
+      JWT_SECRET: 'access-secret-that-is-at-least-32-bytes',
+      REFRESH_TOKEN_SECRET: 'refresh-secret-that-is-at-least-32-bytes',
+      CORS_ORIGINS: 'https://pomodoro.example.com',
+      REFRESH_COOKIE_SECURE: 'true',
+      METRICS_TOKEN: 'metrics-secret-that-is-at-least-32-bytes',
+      SENTRY_TRACES_SAMPLE_RATE: '0.1',
+    })
   );
 });

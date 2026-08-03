@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./config/env').validateEnvironment();
 
 const { setupErrorHandler, captureException } = require('./config/observability');
 const express = require('express');
