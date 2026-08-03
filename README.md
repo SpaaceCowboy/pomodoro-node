@@ -317,6 +317,8 @@ The project is deployed as two services:
 
 The backend includes a `vercel.json` configuration and automatically detects the Vercel serverless environment to skip `app.listen()` in production.
 
+Release preparation, deployment order, rollback, database recovery, alert thresholds, and incident response are documented in the [production operations runbook](docs/operations.md).
+
 ---
 
 ## ⏱️ Timer Logic
