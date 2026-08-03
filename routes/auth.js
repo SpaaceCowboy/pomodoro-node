@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const RefreshToken = require('../models/refreshToken');
 const { createRateLimit, clientIp } = require('../middleware/rateLimit');
+const { issueCsrfToken, csrfProtection } = require('../middleware/csrf');
 const {
   normalizeIdentity,
   normalizeName,
@@ -43,6 +44,13 @@ const refreshLimit = createRateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
 });
+const csrfLimit = createRateLimit({
+  scope: 'auth:csrf:ip',
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+});
+
+router.get('/csrf', csrfLimit, issueCsrfToken);
 
 function ensureJwtSecrets() {
   return Boolean(process.env.JWT_SECRET && process.env.REFRESH_TOKEN_SECRET);
@@ -79,7 +87,7 @@ async function issueTokens(user, req, res) {
 }
 
 // Register + auto-login (sets refresh cookie)
-router.post('/register', registerLimit, async (req, res) => {
+router.post('/register', registerLimit, csrfProtection, async (req, res) => {
   try {
     if (!ensureJwtSecrets()) {
       return res.status(500).json({ message: 'JWT secrets are not configured' });
@@ -119,7 +127,7 @@ router.post('/register', registerLimit, async (req, res) => {
 });
 
 // Login (sets refresh cookie)
-router.post('/login', loginIpLimit, loginAccountLimit, async (req, res) => {
+router.post('/login', loginIpLimit, loginAccountLimit, csrfProtection, async (req, res) => {
   try {
     if (!ensureJwtSecrets()) {
       return res.status(500).json({ message: 'JWT secrets are not configured' });
@@ -149,7 +157,7 @@ router.post('/login', loginIpLimit, loginAccountLimit, async (req, res) => {
 });
 
 // Reads the refresh cookie, verifies it, checks the DB entry, and rotates it.
-router.post('/refresh', refreshLimit, async (req, res) => {
+router.post('/refresh', refreshLimit, csrfProtection, async (req, res) => {
   try {
     if (!ensureJwtSecrets()) {
       return res.status(500).json({ message: 'JWT secrets are not configured' });
@@ -184,7 +192,7 @@ router.post('/refresh', refreshLimit, async (req, res) => {
 });
 
 // Logout: revoke the current refresh token (if present) and clear cookie
-router.post('/logout', async (req, res) => {
+router.post('/logout', refreshLimit, csrfProtection, async (req, res) => {
   try {
     const token = req.cookies?.refresh_token;
 
