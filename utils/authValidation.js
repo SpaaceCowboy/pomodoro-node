@@ -1,6 +1,18 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,30}$/;
 
+function normalizeIdentity(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 function validateRegistration({ name = '', username, email, password } = {}) {
   if (typeof name !== 'string' || name.length > 80) {
     return 'Name must be at most 80 characters';
@@ -37,4 +49,10 @@ function validateRegistration({ name = '', username, email, password } = {}) {
   return null;
 }
 
-module.exports = { EMAIL_PATTERN, USERNAME_PATTERN, validateRegistration };
+module.exports = {
+  EMAIL_PATTERN,
+  USERNAME_PATTERN,
+  normalizeIdentity,
+  normalizeName,
+  validateRegistration,
+};

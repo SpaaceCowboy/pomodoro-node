@@ -4,7 +4,11 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const RefreshToken = require('../models/refreshToken');
 const { createRateLimit, clientIp } = require('../middleware/rateLimit');
-const { validateRegistration } = require('../utils/authValidation');
+const {
+  normalizeIdentity,
+  normalizeName,
+  validateRegistration,
+} = require('../utils/authValidation');
 
 const {
   hashToken,
@@ -86,13 +90,22 @@ router.post('/register', registerLimit, async (req, res) => {
     const validationError = validateRegistration({ name, username, email, password });
     if (validationError) return res.status(400).json({ message: validationError });
 
-    const existing = await User.findOne({ $or: [{ email }, { username }] });
+    const normalizedEmail = normalizeIdentity(email);
+    const normalizedUsername = normalizeIdentity(username);
+    const existing = await User.findOne({
+      $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
+    }).collation({ locale: 'en', strength: 2 });
     if (existing) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, username, email, password: hashedPassword });
+    const newUser = new User({
+      name: normalizeName(name),
+      username: normalizedUsername,
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
     await newUser.save();
 
     const { accessToken } = await issueTokens(newUser, req, res);
@@ -116,7 +129,10 @@ router.post('/login', loginIpLimit, loginAccountLimit, async (req, res) => {
       return res.status(400).json({ message: 'email and password are required' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizeIdentity(email) }).collation({
+      locale: 'en',
+      strength: 2,
+    });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
