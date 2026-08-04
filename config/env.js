@@ -2,7 +2,7 @@ function validateEnvironment(env = process.env) {
   if (env.NODE_ENV !== 'production') return;
 
   const errors = [];
-  const required = ['MONGODB_URI', 'JWT_SECRET', 'REFRESH_TOKEN_SECRET', 'CORS_ORIGINS'];
+  const required = ['DATABASE_URL', 'JWT_SECRET', 'REFRESH_TOKEN_SECRET', 'CORS_ORIGINS'];
   for (const name of required) {
     if (!env[name]?.trim()) errors.push(`${name} is required in production`);
   }
@@ -16,8 +16,15 @@ function validateEnvironment(env = process.env) {
     errors.push('JWT_SECRET and REFRESH_TOKEN_SECRET must be different');
   }
 
-  if (env.MONGODB_URI && !/^mongodb(?:\+srv)?:\/\//.test(env.MONGODB_URI)) {
-    errors.push('MONGODB_URI must use mongodb:// or mongodb+srv://');
+  if (env.DATABASE_URL && !/^postgres(?:ql)?:\/\//.test(env.DATABASE_URL)) {
+    errors.push('DATABASE_URL must use postgres:// or postgresql://');
+  }
+
+  for (const name of ['PG_POOL_MAX', 'PG_CONNECT_TIMEOUT_MS', 'PG_IDLE_TIMEOUT_MS']) {
+    if (env[name] !== undefined) {
+      const value = Number(env[name]);
+      if (!Number.isInteger(value) || value < 1) errors.push(`${name} must be a positive integer`);
+    }
   }
 
   for (const origin of String(env.CORS_ORIGINS || '')

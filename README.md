@@ -8,7 +8,7 @@ A modern Pomodoro timer application with optional authentication, server-side ti
 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-000?style=for-the-badge&logo=express&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![JWT](https://img.shields.io/badge/JWT-000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000?style=for-the-badge&logo=vercel&logoColor=white)
 
@@ -47,7 +47,7 @@ This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute foc
 
 > **Repository Structure:** This project is split across two repositories:
 >
-> - [`pomodoro-node`](https://github.com/SpaaceCowboy/pomodoro-node) — Backend (Express API + MongoDB)
+> - [`pomodoro-node`](https://github.com/SpaaceCowboy/pomodoro-node) — Backend (Express API + PostgreSQL)
 > - [`PomodoroTimer`](https://github.com/SpaaceCowboy/PomodoroTimer) — Frontend (Next.js)
 
 ---
@@ -79,7 +79,7 @@ This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute foc
                              │  └────────┘  └───────┬───────┘  │
                              │                      │          │
                              │         ┌────────────┴────┐     │
-                             │         │    MongoDB      │     │
+                             │         │   PostgreSQL    │     │
                              │         │ Users, Sessions │     │
                              │         └─────────────────┘     │
                              └──────────────────────────────────┘
@@ -95,7 +95,7 @@ This Pomodoro Timer follows the classic **Pomodoro Technique** — 25-minute foc
 | -------------------- | ---------------------------------------------------------- |
 | **Runtime**          | Node.js                                                    |
 | **Framework**        | Express.js                                                 |
-| **Database**         | MongoDB (via Mongoose)                                     |
+| **Database**         | PostgreSQL (via node-postgres)                             |
 | **Auth**             | JWT (jsonwebtoken)                                         |
 | **Password Hashing** | bcryptjs                                                   |
 | **Token Security**   | SHA-256 hashing, HTTP-only cookies, refresh token rotation |
@@ -220,7 +220,7 @@ All push routes are prefixed with `/api/push` and require JWT auth.
 The app uses email/password authentication with short-lived access tokens and rotating refresh tokens.
 
 ```
-Register → Password hashed (bcrypt) → Stored in MongoDB
+Register → Password hashed (bcrypt) → Stored in PostgreSQL
 Login → Verify credentials → Issue Access Token (15min) + Refresh Token (7 days)
 Refresh → Validate refresh cookie → Revoke old token → Issue new pair (rotation)
 Logout → Revoke refresh token → Clear HTTP-only cookie
@@ -230,7 +230,7 @@ Logout → Revoke refresh token → Clear HTTP-only cookie
 
 - Passwords hashed with **bcrypt** (10 rounds)
 - Access tokens expire in **15 minutes**
-- Refresh tokens stored as **SHA-256 hashes** in MongoDB
+- Refresh tokens stored as **SHA-256 hashes** in PostgreSQL
 - Refresh tokens delivered via **HTTP-only, Secure, SameSite=Strict** cookies
 - **Token rotation** — each refresh invalidates the old token and issues a new one
 - Revoked tokens tracked with `revokedAt` timestamp and `replacedBy` chain
@@ -241,8 +241,8 @@ Logout → Revoke refresh token → Clear HTTP-only cookie
 
 ### Prerequisites
 
-- **Node.js** 18+
-- **MongoDB** (local or Atlas)
+- **Node.js** 20.9+
+- **PostgreSQL** 14+
 
 ### Backend Setup
 
@@ -256,6 +256,9 @@ npm install
 
 # Create .env file (see Environment Variables section below)
 cp .env.example .env
+
+# Create/update the PostgreSQL schema
+npm run db:migrate
 
 # Start development server
 npm run dev
@@ -291,8 +294,8 @@ PORT=4002
 NODE_ENV=development
 CORS_ORIGINS=http://localhost:3002
 
-# MongoDB
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/pomodoro
+# PostgreSQL
+DATABASE_URL=postgresql://pomodoro:<password>@127.0.0.1:5432/pomodoro
 
 # JWT Secrets
 JWT_SECRET=your-access-token-secret
@@ -331,7 +334,7 @@ The Pomodoro cycle follows these durations:
 | **Short Break** | 5 minutes                                       |
 | **Long Break**  | 15 minutes (after 4 consecutive focus sessions) |
 
-Signed-in timer state is stored in MongoDB. When the client requests the current state, the server calculates elapsed wall-clock time from the stored segment start and remaining duration, finalizes any completed segments, writes session records, and returns the accurate remaining time. This means the timer keeps running even if the client disconnects.
+Signed-in timer state is stored in PostgreSQL. When the client requests the current state, the server calculates elapsed wall-clock time from the stored segment start and remaining duration, finalizes any completed segments, writes session records, and returns the accurate remaining time. This means the timer keeps running even if the client disconnects.
 
 ---
 

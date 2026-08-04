@@ -19,9 +19,7 @@ const UPDATABLE_FIELDS = [
 ];
 
 async function getOrCreate(userId) {
-  let doc = await TimerSettings.findOne({ user: userId });
-  if (!doc) doc = await TimerSettings.create({ user: userId });
-  return doc;
+  return TimerSettings.getOrCreate(userId);
 }
 
 router.get('/', auth, async (req, res, next) => {

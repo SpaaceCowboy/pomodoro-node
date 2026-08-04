@@ -97,14 +97,14 @@ test('CSRF and refresh cookies use restricted auth paths', () => {
 test('production environment validation rejects missing and unsafe configuration', () => {
   assert.throws(
     () => validateEnvironment({ NODE_ENV: 'production' }),
-    (err) => err.code === 'INVALID_ENVIRONMENT' && err.message.includes('MONGODB_URI')
+    (err) => err.code === 'INVALID_ENVIRONMENT' && err.message.includes('DATABASE_URL')
   );
 
   assert.throws(
     () =>
       validateEnvironment({
         NODE_ENV: 'production',
-        MONGODB_URI: 'mongodb://database/pomodoro',
+        DATABASE_URL: 'postgresql://database/pomodoro',
         JWT_SECRET: 'same-secret-that-is-long-enough-123',
         REFRESH_TOKEN_SECRET: 'same-secret-that-is-long-enough-123',
         CORS_ORIGINS: 'http://insecure.example.com/path',
@@ -121,7 +121,7 @@ test('production environment validation accepts a complete secure configuration'
   assert.doesNotThrow(() =>
     validateEnvironment({
       NODE_ENV: 'production',
-      MONGODB_URI: 'mongodb+srv://database.example.com/pomodoro',
+      DATABASE_URL: 'postgresql://database.example.com/pomodoro',
       JWT_SECRET: 'access-secret-that-is-at-least-32-bytes',
       REFRESH_TOKEN_SECRET: 'refresh-secret-that-is-at-least-32-bytes',
       CORS_ORIGINS: 'https://pomodoro.example.com',

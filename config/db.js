@@ -1,22 +1,61 @@
-const mongoose = require('mongoose');
+const { Pool } = require('pg');
 const logger = require('../utils/logger');
 
-const connectDB = async () => {
-  try {
-    // Production configuration is validated before startup. Local development
-    // retains a convenient database fallback.
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/pomodoro';
-    await mongoose.connect(mongoURI);
-    logger.info('MongoDB connected');
-  } catch (err) {
-    logger.error({ err }, 'MongoDB connection error');
+let pool;
 
-    // This app relies on MongoDB for auth (users, refresh token rotation, timer persistence).
-    // Default: fail fast. Set REQUIRE_DB=false to override (not recommended).
-    if (process.env.REQUIRE_DB !== 'false') {
-      process.exit(1);
-    }
+function databaseUrl() {
+  return process.env.DATABASE_URL || 'postgresql://pomodoro:pomodoro@127.0.0.1:5432/pomodoro';
+}
+
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: databaseUrl(),
+      max: Number(process.env.PG_POOL_MAX || 10),
+      connectionTimeoutMillis: Number(process.env.PG_CONNECT_TIMEOUT_MS || 5000),
+      idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 30000),
+    });
+    pool.on('error', (err) => logger.error({ err }, 'Unexpected PostgreSQL pool error'));
   }
-};
+  return pool;
+}
 
-module.exports = connectDB;
+async function query(text, params) {
+  return getPool().query(text, params);
+}
+
+async function withTransaction(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function connectDB() {
+  try {
+    await query('SELECT 1');
+    logger.info('PostgreSQL connected');
+    return true;
+  } catch (err) {
+    logger.error({ err }, 'PostgreSQL connection error');
+    if (process.env.REQUIRE_DB !== 'false') throw err;
+    return false;
+  }
+}
+
+async function disconnectDB() {
+  if (!pool) return;
+  const current = pool;
+  pool = undefined;
+  await current.end();
+}
+
+module.exports = { connectDB, disconnectDB, getPool, query, withTransaction };

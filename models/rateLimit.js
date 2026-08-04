@@ -1,16 +1,21 @@
-const mongoose = require('mongoose');
+const { query } = require('../config/db');
 
-const rateLimitSchema = new mongoose.Schema(
-  {
-    key: { type: String, required: true },
-    windowStart: { type: Date, required: true },
-    count: { type: Number, required: true, default: 0 },
-    expiresAt: { type: Date, required: true },
-  },
-  { versionKey: false }
-);
+async function increment({ key, windowStart, expiresAt }) {
+  const result = await query(
+    `INSERT INTO rate_limits (key, window_start, count, expires_at)
+     VALUES ($1, $2, 1, $3)
+     ON CONFLICT (key, window_start) DO UPDATE SET
+       count = rate_limits.count + 1,
+       expires_at = EXCLUDED.expires_at
+     RETURNING count`,
+    [key, windowStart, expiresAt]
+  );
 
-rateLimitSchema.index({ key: 1, windowStart: 1 }, { unique: true });
-rateLimitSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  if (Math.random() < 0.01) {
+    query('DELETE FROM rate_limits WHERE expires_at < NOW()').catch(() => {});
+  }
 
-module.exports = mongoose.model('RateLimit', rateLimitSchema);
+  return { count: result.rows[0].count };
+}
+
+module.exports = { increment };

@@ -40,7 +40,7 @@ function projectPresence(user, timerState) {
 
 async function getPresenceForUsers(users) {
   const ids = users.map((user) => user._id);
-  const states = await TimerState.find({ user: { $in: ids } }).lean();
+  const states = await TimerState.findByUserIds(ids);
   const byUser = new Map(states.map((state) => [state.user.toString(), state]));
   return users.map((user) => projectPresence(user, byUser.get(user._id.toString())));
 }

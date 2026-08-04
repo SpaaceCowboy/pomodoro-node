@@ -6,8 +6,8 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
-const mongoose = require('mongoose');
-const connectDB = require('./config/db');
+const { connectDB, disconnectDB } = require('./config/db');
+const { runMigrations } = require('./db/migrate');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const settingsRoutes = require('./routes/settings');
@@ -66,10 +66,11 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// mongodb - connect before setting up routes
+// Connect and apply versioned PostgreSQL migrations before setting up routes.
 const startServer = async () => {
   try {
-    await connectDB();
+    const connected = await connectDB();
+    if (connected) await runMigrations();
 
     // Import and mount API routes
     const timerRoutes = require('./routes/timerRoutes');
@@ -136,7 +137,7 @@ async function shutdown(signal = 'shutdown') {
       ]);
     }
 
-    if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+    await disconnectDB();
   })();
 
   return shutdownPromise;

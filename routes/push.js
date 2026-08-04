@@ -35,16 +35,12 @@ router.post('/subscribe', auth, async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid push subscription' });
     }
 
-    const doc = await PushSubscription.findOneAndUpdate(
-      { endpoint: subscription.endpoint },
-      {
-        user: req.user.id,
-        endpoint: subscription.endpoint,
-        keys: subscription.keys,
-        userAgent: req.headers['user-agent'] || '',
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+    const doc = await PushSubscription.upsert({
+      user: req.user.id,
+      endpoint: subscription.endpoint,
+      keys: subscription.keys,
+      userAgent: req.headers['user-agent'] || '',
+    });
 
     res.status(201).json({ subscribed: true, id: doc._id });
   } catch (err) {
@@ -59,7 +55,7 @@ router.delete('/subscribe', auth, async (req, res, next) => {
       return res.status(400).json({ message: 'Subscription endpoint is required' });
     }
 
-    await PushSubscription.deleteOne({ user: req.user.id, endpoint });
+    await PushSubscription.remove({ userId: req.user.id, endpoint });
     res.json({ subscribed: false });
   } catch (err) {
     next(err);

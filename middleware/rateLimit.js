@@ -10,24 +10,7 @@ function clientIp(req) {
 }
 
 async function incrementCounter({ key, windowStart, expiresAt }) {
-  const filter = { key, windowStart };
-  const update = {
-    $inc: { count: 1 },
-    $setOnInsert: { expiresAt },
-  };
-
-  try {
-    return await RateLimit.findOneAndUpdate(filter, update, {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    }).lean();
-  } catch (err) {
-    // Concurrent first requests can race on the unique window key. The loser
-    // retries as a normal increment so no request escapes the counter.
-    if (err?.code !== 11000) throw err;
-    return RateLimit.findOneAndUpdate(filter, { $inc: { count: 1 } }, { new: true }).lean();
-  }
+  return RateLimit.increment({ key, windowStart, expiresAt });
 }
 
 function createRateLimit({ scope, windowMs, max, keyGenerator = clientIp }) {

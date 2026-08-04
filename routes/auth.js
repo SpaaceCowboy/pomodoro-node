@@ -101,28 +101,25 @@ router.post('/register', registerLimit, csrfProtection, async (req, res) => {
 
     const normalizedEmail = normalizeIdentity(email);
     const normalizedUsername = normalizeIdentity(username);
-    const existing = await User.findOne({
-      $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
-    }).collation({ locale: 'en', strength: 2 });
+    const existing = await User.findExisting(normalizedEmail, normalizedUsername);
     if (existing) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({
+    const newUser = await User.create({
       name: normalizeName(name),
       username: normalizedUsername,
       email: normalizedEmail,
       password: hashedPassword,
     });
-    await newUser.save();
 
     const { accessToken } = await issueTokens(newUser, req, res);
 
     res.status(201).json({ accessToken, user: safeUser(newUser) });
   } catch (err) {
     logger.error({ err }, 'Registration failed');
-    if (err?.code === 11000) return res.status(400).json({ message: 'User already exists' });
+    if (err?.code === '23505') return res.status(400).json({ message: 'User already exists' });
     return res.status(500).json({ message: 'Server error' });
   }
 });
@@ -139,10 +136,7 @@ router.post('/login', loginIpLimit, loginAccountLimit, csrfProtection, async (re
       return res.status(400).json({ message: 'email and password are required' });
     }
 
-    const user = await User.findOne({ email: normalizeIdentity(email) }).collation({
-      locale: 'en',
-      strength: 2,
-    });
+    const user = await User.findByEmail(normalizeIdentity(email));
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -177,7 +171,7 @@ router.post('/refresh', refreshLimit, csrfProtection, async (req, res) => {
     }
 
     const tokenHash = hashToken(token);
-    const doc = await RefreshToken.findOne({ tokenHash, jti: decoded.jti }).populate('user');
+    const doc = await RefreshToken.findByHashAndJtiWithUser(tokenHash, decoded.jti);
 
     if (!doc) return res.status(401).json({ message: 'Refresh token not recognized' });
     if (doc.revokedAt) return res.status(401).json({ message: 'Refresh token revoked' });
@@ -199,7 +193,7 @@ router.post('/logout', refreshLimit, csrfProtection, async (req, res) => {
 
     if (token) {
       const tokenHash = hashToken(token);
-      const doc = await RefreshToken.findOne({ tokenHash });
+      const doc = await RefreshToken.findByHash(tokenHash);
       if (doc && !doc.revokedAt) {
         doc.revokedAt = new Date();
         await doc.save();

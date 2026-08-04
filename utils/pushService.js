@@ -40,7 +40,7 @@ function notificationForState(doc) {
 async function sendToUser(userId, payload) {
   if (!configureWebPush()) return { skipped: true, sent: 0 };
 
-  const subscriptions = await PushSubscription.find({ user: userId }).lean();
+  const subscriptions = await PushSubscription.listByUser(userId);
   let sent = 0;
 
   await Promise.all(
@@ -56,7 +56,7 @@ async function sendToUser(userId, payload) {
         sent += 1;
       } catch (err) {
         if (err.statusCode === 404 || err.statusCode === 410) {
-          await PushSubscription.deleteOne({ endpoint: sub.endpoint });
+          await PushSubscription.remove({ endpoint: sub.endpoint });
           return;
         }
         logger.error({ err }, 'Push send failed');

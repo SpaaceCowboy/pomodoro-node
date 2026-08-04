@@ -52,7 +52,7 @@ router.get('/me', auth, async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({
         message: 'User not found',
@@ -86,10 +86,7 @@ router.patch('/me', auth, async (req, res) => {
       updates.publicProfileEnabled = Boolean(req.body.publicProfileEnabled);
     }
 
-    const user = await User.findByIdAndUpdate(req.user.id, updates, {
-      new: true,
-      runValidators: true,
-    }).select('-password');
+    const user = await User.updateById(req.user.id, updates);
 
     if (!user) {
       return res.status(404).json({

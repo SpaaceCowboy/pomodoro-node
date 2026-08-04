@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const TimerState = require('../models/timerState');
 const TimerSettings = require('../models/timerSettings');
 const Session = require('../models/session');
@@ -8,15 +7,11 @@ const { sendSegmentCompletePushes } = require('../utils/pushService');
 // ---------- helpers ----------
 
 async function getOrCreateTimerState(userId) {
-  let doc = await TimerState.findOne({ user: userId });
-  if (!doc) doc = await TimerState.create({ user: userId });
-  return doc;
+  return TimerState.getOrCreate(userId);
 }
 
 async function getOrCreateSettings(userId) {
-  let doc = await TimerSettings.findOne({ user: userId });
-  if (!doc) doc = await TimerSettings.create({ user: userId });
-  return doc;
+  return TimerSettings.getOrCreate(userId);
 }
 
 const MERGEABLE_SETTINGS = [
@@ -226,26 +221,8 @@ async function computeStreak(userId, dailyGoalMin) {
   lookbackStart.setHours(0, 0, 0, 0);
   lookbackStart.setDate(lookbackStart.getDate() - 365);
 
-  const rows = await Session.aggregate([
-    {
-      $match: {
-        user: new mongoose.Types.ObjectId(userId),
-        mode: 'focus',
-        completed: true,
-        endedAt: { $gte: lookbackStart },
-      },
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: { format: '%Y-%m-%d', date: '$endedAt' },
-        },
-        sec: { $sum: '$durationSec' },
-      },
-    },
-  ]);
-
-  const byDay = new Map(rows.map((r) => [r._id, r.sec]));
+  const rows = await Session.dailyFocusTotals(userId, lookbackStart);
+  const byDay = new Map(rows.map((row) => [row.day, row.sec]));
   const fmt = (d) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -498,29 +475,9 @@ exports.getStats = async (req, res, next) => {
     const weekStart = new Date(startOfThisWeekMs());
 
     const [todayFocus, weekFocus, todayFocusSec, streak] = await Promise.all([
-      Session.countDocuments({
-        user: userId,
-        mode: 'focus',
-        completed: true,
-        endedAt: { $gte: todayStart },
-      }),
-      Session.countDocuments({
-        user: userId,
-        mode: 'focus',
-        completed: true,
-        endedAt: { $gte: weekStart },
-      }),
-      Session.aggregate([
-        {
-          $match: {
-            user: new mongoose.Types.ObjectId(userId),
-            mode: 'focus',
-            completed: true,
-            endedAt: { $gte: todayStart },
-          },
-        },
-        { $group: { _id: null, sec: { $sum: '$durationSec' } } },
-      ]).then((rows) => rows[0]?.sec || 0),
+      Session.countFocus(userId, todayStart),
+      Session.countFocus(userId, weekStart),
+      Session.sumFocus(userId, todayStart).then((summary) => summary.focusSec),
       computeStreak(userId, settings.dailyFocusGoalMin),
     ]);
 
@@ -549,18 +506,17 @@ exports.getSessions = async (req, res, next) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const { from, to, limit, mode, label } = req.query;
-    const query = { user: userId };
-    if (from || to) {
-      query.endedAt = {};
-      if (from) query.endedAt.$gte = new Date(from);
-      if (to) query.endedAt.$lte = new Date(to);
-    }
-    if (mode === 'focus' || mode === 'break') query.mode = mode;
-    if (typeof label === 'string' && label.length) query.label = label;
 
     const cap = Math.min(parseInt(limit, 10) || 100, 500);
 
-    const sessions = await Session.find(query).sort({ endedAt: -1 }).limit(cap).lean();
+    const sessions = await Session.list({
+      userId,
+      from: from ? new Date(from) : null,
+      to: to ? new Date(to) : null,
+      mode,
+      label,
+      limit: cap,
+    });
     res.json({ sessions });
   } catch (err) {
     next(err);
@@ -573,29 +529,11 @@ exports.getLabelStats = async (req, res, next) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const { from, to } = req.query;
-    const match = {
-      user: new mongoose.Types.ObjectId(userId),
-      mode: 'focus',
-      completed: true,
-    };
-    if (from || to) {
-      match.endedAt = {};
-      if (from) match.endedAt.$gte = new Date(from);
-      if (to) match.endedAt.$lte = new Date(to);
-    }
-
-    const rows = await Session.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: { $ifNull: ['$label', ''] },
-          focusSec: { $sum: '$durationSec' },
-          sessions: { $sum: 1 },
-        },
-      },
-      { $project: { _id: 0, label: '$_id', focusSec: 1, sessions: 1 } },
-      { $sort: { focusSec: -1 } },
-    ]);
+    const rows = await Session.labelStats({
+      userId,
+      from: from ? new Date(from) : null,
+      to: to ? new Date(to) : null,
+    });
 
     res.json({ labels: rows });
   } catch (err) {
@@ -629,13 +567,7 @@ exports.mergeLocalTimerData = async (req, res, next) => {
       const latest = new Date(
         Math.max(...uniqueSessions.map((session) => session.endedAt.getTime()))
       );
-      const existing = await Session.find({
-        user: userId,
-        startedAt: { $gte: earliest },
-        endedAt: { $lte: latest },
-      })
-        .select('mode startedAt endedAt durationSec label completed')
-        .lean();
+      const existing = await Session.findDedupeWindow(userId, earliest, latest);
 
       const existingKeys = new Set(
         existing.map((session) =>
